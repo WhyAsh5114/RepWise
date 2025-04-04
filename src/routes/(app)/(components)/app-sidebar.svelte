@@ -5,7 +5,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import {
-	BarChartIcon,
+		BarChartIcon,
 		BlocksIcon,
 		ChevronUpIcon,
 		ClipboardListIcon,
@@ -32,7 +32,7 @@
 				{
 					label: 'Form Correction',
 					href: '/form-correction',
-					icon: DumbbellIcon,
+					icon: DumbbellIcon
 				},
 				{
 					label: 'Macro Tracking',
@@ -60,7 +60,7 @@
 </script>
 
 <Sidebar.Root>
-	<Sidebar.Header>
+	<Sidebar.Header class="bg-background text-foreground">
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton
@@ -75,7 +75,7 @@
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
 	</Sidebar.Header>
-	<Sidebar.Content>
+	<Sidebar.Content class="bg-background text-foreground">
 		{#each SIDEBAR_LINK_GROUPS as linkGroup (linkGroup.label)}
 			<Sidebar.Group>
 				<Sidebar.GroupLabel>{linkGroup.label}</Sidebar.GroupLabel>
@@ -101,7 +101,7 @@
 			</Sidebar.Group>
 		{/each}
 	</Sidebar.Content>
-	<Sidebar.Footer>
+	<Sidebar.Footer class="bg-background text-foreground">
 		<Sidebar.Menu class="flex w-full flex-row">
 			<Sidebar.MenuItem class="grow">
 				{#if $session.isPending || $session.isRefetching}
