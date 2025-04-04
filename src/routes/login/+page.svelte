@@ -1,11 +1,11 @@
 <script lang="ts">
+	import { cn } from '$lib/utils';
+	import { signIn } from '$lib/auth-client';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { cn } from '$lib/utils';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { signIn } from '$lib/auth-client';
 </script>
 
 <div class="flex h-screen items-center justify-center">
@@ -22,14 +22,12 @@
 			<div class="grid gap-4">
 				<div class="grid gap-2">
 					<Label for="email">Email</Label>
-
 					<Input id="email" type="email" placeholder="m@example.com" required />
 				</div>
 
 				<div class="grid gap-2">
 					<div class="flex items-center">
 						<Label for="password">Password</Label>
-
 						<a href="/" class="ml-auto inline-block text-sm underline"> Forgot your password? </a>
 					</div>
 
@@ -38,19 +36,12 @@
 
 				<div class="flex items-center gap-2">
 					<Checkbox id="remember" />
-
 					<Label for="remember">Remember me</Label>
 				</div>
 
 				<Button type="submit" class="w-full">Login</Button>
 
-				<div
-					class={cn(
-						'flex w-full items-center gap-2',
-
-						'flex-col justify-between'
-					)}
-				>
+				<div class={cn('flex w-full items-center gap-2', 'flex-col justify-between')}>
 					<Button
 						variant="outline"
 						class={cn('w-full gap-2')}
