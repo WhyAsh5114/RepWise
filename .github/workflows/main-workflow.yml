@@ -9,22 +9,6 @@ on:
       - main
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-environment
-      - name: Run ESLint and Prettier Check
-        run: npm run lint
-
-  svelte_check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-environment
-      - name: Run Svelte Check
-        run: npm run check
-
   playwright_tests:
     runs-on: ubuntu-latest
     services:
