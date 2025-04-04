@@ -1,11 +1,11 @@
 <script lang="ts">
+	import { cn } from '$lib/utils';
+	import { signIn } from '$lib/auth-client';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { cn } from '$lib/utils';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { signIn } from '$lib/auth-client';
 </script>
 
 <div class="flex h-screen items-center justify-center">
