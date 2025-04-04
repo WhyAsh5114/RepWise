@@ -95,7 +95,6 @@
 	}
 
 	async function onDetect(detectedCodes: DetectedBarcode[]) {
-		console.log(detectedCodes);
 		result = detectedCodes[0].rawValue;
 		if (result.length > 0) {
 			const response = await fetch(`https://world.openfoodfacts.org/api/v3/product/${result}.json`);
@@ -113,6 +112,24 @@
 			calories = nutriments.energy;
 
 			console.log(carbs, proteins, fat, calories);
+
+			const macros_data = {
+				calories,
+				proteins,
+				carbs,
+				fat,
+				rawData: JSON.stringify(product)
+			};
+
+			const api_response = await fetch('/api/macros', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ macros_data })
+			});
+			const api_result = await api_response.text();
+			console.log(api_result);
 		}
 	}
 
@@ -172,7 +189,6 @@
 			{onDetect}
 		/>
 	</div>
-
 </div>
 
 Last result: {result}
