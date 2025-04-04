@@ -49,7 +49,7 @@
 							await signIn.social({
 								provider: 'google',
 								callbackURL: '/dashboard',
-								newUserCallbackURL: '/new-user'
+								newUserCallbackURL: '/onboarding',
 							});
 						}}
 					>

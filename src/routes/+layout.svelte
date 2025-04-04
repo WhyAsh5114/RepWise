@@ -5,16 +5,33 @@
 	import { useSession } from '$lib/auth-client';
 
 	let { children } = $props();
-	let session = useSession();
+	const session = useSession();
 
+	let isLoading: B = $state(true);
 	const unprotectedRoutes = ['/', '/login'];
-	let isAuthenticated = $derived(!!$session.data?.user?.id);
+	const isAuthenticated = () => !!$session.data?.user?.id;
 
 	$effect(() => {
-		if (!isAuthenticated && !unprotectedRoutes.includes(page.url.pathname)) {
+		if ($session.isPending) {
+			isLoading = true;
+			return;
+		}
+
+		isLoading = false;
+
+		const needsAuth = !unprotectedRoutes.includes(page.url.pathname);
+		if (!isAuthenticated() && needsAuth) {
 			goto('/login');
 		}
 	});
 </script>
 
-{@render children()}
+{#if isLoading}
+	<div class="flex h-screen items-center justify-center">
+		<div
+			class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+		></div>
+	</div>
+{:else}
+	{@render children()}
+{/if}
