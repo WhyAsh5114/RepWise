@@ -3,7 +3,16 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-	import { Activity, Smartphone, Barcode, Award, Bot, ChevronRight, Lock } from 'lucide-svelte';
+	import {
+		Activity,
+		Smartphone,
+		Barcode,
+		Award,
+		Bot,
+		ChevronRight,
+		Lock,
+		Sparkles
+	} from 'lucide-svelte';
 
 	interface BeforeInstallPromptEvent extends Event {
 		prompt: () => Promise<void>;
@@ -30,7 +39,7 @@
 				if (!deferredPrompt) return;
 
 				deferredPrompt.prompt();
-				deferredPrompt.userChoice.then((choiceResult) => {
+				deferredPrompt.userChoice.then(() => {
 					deferredPrompt = null;
 					installButton.style.display = 'none';
 				});
@@ -58,8 +67,8 @@
 				<span class="text-xl font-bold">RepWise</span>
 			</a>
 			<nav class="hidden gap-6 md:flex">
-				<a href="#features" class="text-sm font-medium hover:text-primary">Features</a>
-				<a href="#future" class="text-sm font-medium hover:text-primary">Future</a>
+				<a href="#features" class="text-base font-medium hover:text-primary">Features</a>
+				<a href="#future" class="text-base font-medium hover:text-primary">Future</a>
 			</nav>
 
 			<div class="flex items-center gap-4">
@@ -101,7 +110,7 @@
 						tracking with barcode scanning, and AI-powered workout programs. Supports Health
 						Connect, WearOS, and features PVP fitness, gamification.
 					</p>
-					<Button size="lg">
+					<Button href="/dashboard" size="lg">
 						Get Started
 						<ChevronRight class="ml-2 h-4 w-4" />
 					</Button>
@@ -182,8 +191,7 @@
 		<section id="future" class="py-16">
 			<div class="container">
 				<h2 class="mb-8 text-center text-3xl font-bold tracking-tight sm:text-4xl">Future Scope</h2>
-
-				<div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mx-auto w-full">
+				<div class="mx-auto grid w-full max-w-3xl gap-8 md:grid-cols-2">
 					<Card class="mx-auto max-w-lg">
 						<CardHeader>
 							<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -195,20 +203,18 @@
 							<p>Secure and private health data management</p>
 						</CardContent>
 					</Card>
-	
 					<Card class="mx-auto max-w-lg">
 						<CardHeader>
 							<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-								<Lock class="h-6 w-6 text-primary" />
+								<Sparkles class="h-6 w-6 text-primary" />
 							</div>
-							<CardTitle>Decentralized Health Records</CardTitle>
+							<CardTitle>NFTs for Achievements</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<p>Secure and private health data management</p>
+							<p>Rewarding milestones with blockchain-based NFTs</p>
 						</CardContent>
 					</Card>
 				</div>
-
 				<div class="mt-16 text-center">
 					<h3 class="mb-2 text-2xl font-bold">
 						Elevate your fitness with AI-driven insights and gamification!
