@@ -29,7 +29,6 @@
 	let stream = $state<MediaStream | null>(null);
 	let lastVideoTime = -1;
 	let poseSequence = $state<PoseLandmarkerResult[]>();
-	let isVideoPlaying = $state(false);
 	let feedbackMessages = $state<string[]>([]);
 
 	onMount(() => {
@@ -125,7 +124,6 @@
 			stopWebcam();
 		} else if (videoElement) {
 			videoElement.pause();
-			isVideoPlaying = false;
 		}
 
 		// Show final feedback
@@ -155,7 +153,6 @@
 		// Start playing the video file if we're using a file input
 		if (inputSource === 'file' && videoElement) {
 			videoElement.play();
-			isVideoPlaying = true;
 		}
 
 		function predictVideo() {
@@ -220,7 +217,7 @@
 	</div>
 {/if}
 
-<div class={cn('grid gap-2', { hidden: !isVideoPlaying })}>
+<div class={cn('grid gap-2', { hidden: timer !== 0 })}>
 	<video
 		class={cn('col-start-1 row-start-1 w-full', { hidden: !videoSrc && !stream })}
 		muted

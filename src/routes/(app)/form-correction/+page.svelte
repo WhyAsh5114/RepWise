@@ -1,12 +1,12 @@
 <script lang="ts">
 	import H1 from '$lib/components/typography/h1.svelte';
+	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import DetectionComponent from '$lib/detection-component.svelte';
-	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 
 	let selectedExercise = $state('Squat');
 	let timer = $state(5);
@@ -130,17 +130,21 @@
 	</Label>
 
 	<Label class="col-span-2 space-y-1.5">
-			<span>Input Source</span>
-			<RadioGroup.Root bind:value={inputSource} class="flex flex-wrap gap-4 mt-2">
-				<div class="flex items-center space-x-2 border rounded-md px-4 py-2 hover:bg-muted/50 transition-colors">
-					<RadioGroup.Item value="webcam" id="webcam" />
-					<Label for="webcam" class="cursor-pointer">Webcam</Label>
-				</div>
-				<div class="flex items-center space-x-2 border rounded-md px-4 py-2 hover:bg-muted/50 transition-colors">
-					<RadioGroup.Item value="file" id="file" />
-					<Label for="file" class="cursor-pointer">Video File</Label>
-				</div>
-			</RadioGroup.Root>
+		<span>Input Source</span>
+		<RadioGroup.Root bind:value={inputSource} class="mt-2 flex flex-wrap gap-4">
+			<div
+				class="flex items-center space-x-2 rounded-md border px-4 py-2 transition-colors hover:bg-muted/50"
+			>
+				<RadioGroup.Item value="webcam" id="webcam" />
+				<Label for="webcam" class="cursor-pointer">Webcam</Label>
+			</div>
+			<div
+				class="flex items-center space-x-2 rounded-md border px-4 py-2 transition-colors hover:bg-muted/50"
+			>
+				<RadioGroup.Item value="file" id="file" />
+				<Label for="file" class="cursor-pointer">Video File</Label>
+			</div>
+		</RadioGroup.Root>
 	</Label>
 
 	{#if inputSource === 'webcam'}
@@ -162,12 +166,7 @@
 	{:else if inputSource === 'file'}
 		<Label class="col-span-2 space-y-1.5">
 			<span>Select a video file</span>
-			<Input 
-				type="file" 
-				accept="video/*" 
-				onchange={handleFileSelect} 
-				required
-			/>
+			<Input type="file" onchange={handleFileSelect} required />
 		</Label>
 	{/if}
 
@@ -175,23 +174,22 @@
 		<Label for="timer">Timer</Label>
 		<Input type="number" id="timer" placeholder="Timer (in seconds)" bind:value={timer} required />
 	</div>
-	<Button 
-		type="submit" 
-		disabled={(inputSource === 'webcam' && permissionStatus === 'denied') || 
-			(inputSource === 'file' && !videoFile) || 
-			detectionStarted
-		}
+	<Button
+		type="submit"
+		disabled={(inputSource === 'webcam' && permissionStatus === 'denied') ||
+			(inputSource === 'file' && !videoFile) ||
+			detectionStarted}
 	>
 		{inputSource === 'webcam' && permissionStatus === 'prompt' ? 'Allow Camera & Start' : 'Start'}
 	</Button>
 </form>
 
 {#if detectionStarted}
-	<DetectionComponent 
-		{timer} 
-		exerciseName={selectedExercise} 
-		{selectedCamera} 
-		{inputSource} 
-		{videoFile} 
+	<DetectionComponent
+		{timer}
+		exerciseName={selectedExercise}
+		{selectedCamera}
+		{inputSource}
+		{videoFile}
 	/>
 {/if}
