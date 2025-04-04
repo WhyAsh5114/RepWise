@@ -21,7 +21,8 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 	{
 		name: 'Squat',
 		feedbackFunction: (poseData) => {
-			const feedback: string[] = [];
+			const positiveFeedback: string[] = [];
+			const negativeFeedback: string[] = [];
 
 			// Skip if not enough data points
 			if (poseData.length < 10) return ['Not enough data to analyze squat form'];
@@ -107,32 +108,65 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// 1. Depth feedback
 			if (minKneeAngle > 90) {
-				feedback.push('Try to squat deeper - aim for thighs parallel to ground or lower');
+				negativeFeedback.push('Try to squat deeper - aim for thighs parallel to ground or lower');
 			} else {
-				feedback.push('Your squat depth is good');
+				positiveFeedback.push('Your squat depth is good');
 			}
 
 			// 2. Knee position feedback
 			const minKneeDistance = Math.min(...kneeDistance);
 			if (minKneeDistance < 0.6) {
-				feedback.push('Keep your knees in line with your toes - avoid knee cave-in');
+				negativeFeedback.push('Keep your knees in line with your toes - avoid knee cave-in');
+			} else {
+				positiveFeedback.push('Good knee alignment throughout the movement');
+			}
+
+			// 3. Hip dominance feedback
+			const initialKneeAngle = kneeAngles[0] || 180;
+			const initialHipAngle = hipAngles[0] || 180;
+			const minHipAngle = Math.min(...hipAngles);
+
+			// Calculate flexion amounts (change from starting position)
+			const kneeFlexionAmount = initialKneeAngle - minKneeAngle;
+			const hipFlexionAmount = initialHipAngle - minHipAngle;
+
+			// Check if hip flexion is significantly greater than knee flexion
+			if (hipFlexionAmount > kneeFlexionAmount * 1.3) {
+				negativeFeedback.push(
+					'Focus on bending your knees more - your squat appears to be hip-dominant'
+				);
+			} else if (kneeFlexionAmount > hipFlexionAmount * 1.5) {
+				negativeFeedback.push('Good knee flexion, but engage your hips more for balanced movement');
+			} else {
+				positiveFeedback.push('Good balance between knee and hip movement');
 			}
 
 			// 4. Tempo feedback
 			if (eccentricConcentricRatio < 0.6) {
-				feedback.push('Lower yourself more slowly - your descent should be controlled');
-			} else if (eccentricConcentricRatio > 1.7) {
-				feedback.push('Drive up more powerfully during the ascent phase');
+				negativeFeedback.push('Lower yourself more slowly - your descent should be controlled');
+			} else if (eccentricConcentricRatio > 1.8) {
+				negativeFeedback.push('Drive up more powerfully during the ascent phase');
 			} else {
-				feedback.push('Good tempo control between lowering and rising phases');
+				positiveFeedback.push('Good tempo control between lowering and rising phases');
 			}
 
-			// If only depth feedback was good, add positive overall feedback
-			if (feedback.length === 1 && feedback[0] === 'Your squat depth is good') {
-				feedback.push('Great squat form! Keep it up!');
+			// Return all feedback, with positive first and negative last
+			const allFeedback = [...positiveFeedback];
+
+			// Add the excellence message if there's no negative feedback
+			if (negativeFeedback.length === 0 && positiveFeedback.length > 0) {
+				allFeedback.push('Excellent squat form across all aspects! Keep up the great work!');
 			}
 
-			return feedback;
+			// Add negative feedback at the end
+			allFeedback.push(...negativeFeedback);
+
+			// Return combined feedback or default message if no feedback
+			if (allFeedback.length > 0) {
+				return allFeedback;
+			} else {
+				return ['Unable to properly analyze squat form'];
+			}
 		}
 	}
 ];

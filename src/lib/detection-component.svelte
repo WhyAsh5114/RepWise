@@ -30,6 +30,62 @@
 	let lastVideoTime = -1;
 	let poseSequence = $state<PoseLandmarkerResult[]>();
 	let feedbackMessages = $state<string[]>([]);
+	let lastVoiceFeedbackTime = 0;
+
+	// Throttled function to speak the latest feedback
+	async function speakLatestFeedback() {
+		const now = Date.now();
+		// Throttle to once every 5 seconds
+		if (now - lastVoiceFeedbackTime >= 5000 && feedbackMessages.length > 0) {
+			lastVoiceFeedbackTime = now;
+			const latestFeedback = feedbackMessages[feedbackMessages.length - 1];
+			toast.info(latestFeedback);
+
+			try {
+				// Create an AbortController with a timeout
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+				const response = await fetch('/api/voice', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ text: latestFeedback }),
+					signal: controller.signal
+				});
+
+				clearTimeout(timeoutId); // Clear timeout if fetch completes
+
+				if (response.ok) {
+					const audioBlob = await response.blob();
+					const audioUrl = URL.createObjectURL(audioBlob);
+					const audio = new Audio(audioUrl);
+
+					audio.onended = () => {
+						URL.revokeObjectURL(audioUrl); // Clean up when done
+					};
+
+					await audio.play().catch((err) => {
+						console.error('Error playing audio:', err);
+					});
+				} else {
+					console.error('Voice API error response:', response.status);
+					const errorText = await response.text();
+					console.error('Error details:', errorText);
+				}
+			} catch (error) {
+				console.error('Failed to speak feedback:', error);
+				// Reset the feedback time if there was an error so we can try again sooner
+				lastVoiceFeedbackTime = now - 4000;
+			}
+		}
+	}
+
+	// Effect to watch for feedback changes
+	$effect(() => {
+		if (feedbackMessages.length > 0) {
+			speakLatestFeedback();
+		}
+	});
 
 	onMount(() => {
 		loadLandmarker();
@@ -139,6 +195,7 @@
 		if (!videoElement || !canvasElement) return;
 		poseSequence = [];
 		feedbackMessages = [];
+		lastVoiceFeedbackTime = 0;
 
 		const canvasCtx = canvasElement.getContext('2d')!;
 		const drawingUtils = new DrawingUtils(canvasCtx);

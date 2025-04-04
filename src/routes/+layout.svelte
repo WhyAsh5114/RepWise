@@ -1,8 +1,9 @@
 <script lang="ts">
-	import '../app.css';
-	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { useSession } from '$lib/auth-client';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
+	import '../app.css';
 
 	let { children } = $props();
 	const session = useSession();
@@ -25,6 +26,8 @@
 		}
 	});
 </script>
+
+<Toaster />
 
 {#if isLoading}
 	<div class="flex h-screen items-center justify-center">

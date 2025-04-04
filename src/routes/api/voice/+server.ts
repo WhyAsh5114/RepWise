@@ -12,7 +12,7 @@ export async function POST({ request }) {
 
 		const client = new ElevenLabsClient({
 			apiKey: ELEVENLABS_API_KEY
-		 });
+		});
 
 		// Generate the complete audio without streaming
 		const audioBuffer = await client.textToSpeech.convert('JBFqnCBsd6RMkjVDRZzb', {
@@ -20,7 +20,7 @@ export async function POST({ request }) {
 			text: text,
 			model_id: 'eleven_multilingual_v2'
 		});
-		
+
 		// Convert the Readable stream to a buffer
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const chunks: any[] = [];
@@ -28,7 +28,7 @@ export async function POST({ request }) {
 			chunks.push(chunk);
 		}
 		const buffer = Buffer.concat(chunks);
-		
+
 		// Return the complete audio buffer
 		return new Response(buffer, {
 			headers: {
