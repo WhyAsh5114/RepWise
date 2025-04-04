@@ -5,13 +5,16 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import {
+	BarChartIcon,
 		BlocksIcon,
 		ChevronUpIcon,
+		ClipboardListIcon,
 		CogIcon,
 		LoaderCircleIcon,
 		LogInIcon,
 		UserRound,
-		UserRoundIcon
+		UserRoundIcon,
+		DumbbellIcon
 	} from 'lucide-svelte';
 
 	const sidebar = useSidebar();
@@ -27,9 +30,19 @@
 					icon: BlocksIcon
 				},
 				{
-					label: 'Settings',
-					href: '/settings',
-					icon: CogIcon
+					label: 'Form Correction',
+					href: '/form-correction',
+					icon: DumbbellIcon,
+				},
+				{
+					label: 'Macro Tracking',
+					href: '/macro-tracking',
+					icon: BarChartIcon
+				},
+				{
+					label: 'Onboarding',
+					href: '/onboarding',
+					icon: ClipboardListIcon
 				}
 			]
 		},
