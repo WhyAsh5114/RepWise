@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { authClient } from '$lib/auth/auth-client';
+	import { authClient } from '$lib/auth-client';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
@@ -56,7 +56,7 @@
 				>
 					<a class="flex w-full items-center gap-2 px-2 py-0 text-xl font-semibold" href="/">
 						<img src="/favicon.ico" alt="logo" class="h-12 w-12" />
-						MyFit <span class="ml-auto text-sm font-normal">v4</span>
+						RepWise
 					</a>
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>
@@ -131,7 +131,6 @@
 									onclick={() => {
 										authClient.signOut();
 										localStorage.clear();
-										client.resetDatabase();
 									}}
 								>
 									<LogInIcon />
