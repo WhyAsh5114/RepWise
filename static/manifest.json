@@ -1,0 +1,45 @@
+{
+	"scope": "/",
+	"lang": "en-IN",
+	"start_url": "/",
+	"name": "RepWise",
+	"display": "standalone",
+	"short_name": "RepWise",
+	"theme_color": "#ef0b39",
+	"orientation": "portrait",
+	"background_color": "#ffffff",
+	"description": "RepWise is an advanced fitness app integrating real-time pose detection with voice feedback, macro tracking with barcode scanning, and AI-powered workout programs. It supports Health Connect, WearOS, and features PVP fitness, gamification, and NFT achievements.",
+	"icons": [
+		{
+			"sizes": "64x64",
+			"src": "/favicon.ico",
+			"type": "image/x-icon"
+		},
+		{
+			"sizes": "64x64",
+			"type": "image/png",
+			"src": "/pwa-64x64.png"
+		},
+		{
+			"sizes": "192x192",
+			"type": "image/png",
+			"src": "/pwa-192x192.png"
+		},
+		{
+			"sizes": "512x512",
+			"type": "image/png",
+			"src": "/pwa-512x512.png"
+		},
+		{
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable",
+			"src": "/maskable-icon-512x512.png"
+		},
+		{
+			"sizes": "180x180",
+			"type": "image/png",
+			"src": "/apple-touch-icon-180x180.png"
+		}
+	]
+}
