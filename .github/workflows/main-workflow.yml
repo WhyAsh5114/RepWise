@@ -11,12 +11,17 @@ on:
 jobs:
   playwright_tests:
     runs-on: ubuntu-latest
+    env:
+      PUBLIC_BASE_URL: http://localhost:5173
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      
     services:
       postgres:
         image: postgres:latest
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: repwise_test
         ports:
           - 5432:5432
@@ -31,7 +36,7 @@ jobs:
       - uses: ./.github/actions/setup-environment
 
       - name: Set DATABASE_URL
-        run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/repwise_test" >> $GITHUB_ENV
+        run: echo "DATABASE_URL=postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/repwise_test" >> $GITHUB_ENV
 
       - name: Initialize database schema
         run: npx prisma db push
