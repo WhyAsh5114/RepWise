@@ -55,5 +55,8 @@
 		"vaul-svelte": "^1.0.0-next.7",
 		"vite": "^6.0.0",
 		"zod": "^3.24.2"
+	},
+	"dependencies": {
+		"lucide-svelte": "^0.487.0"
 	}
 }
