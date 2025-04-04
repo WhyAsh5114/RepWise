@@ -57,9 +57,10 @@
 		"zod": "^3.24.2"
 	},
 	"dependencies": {
-		"lucide-svelte": "^0.487.0",
 		"@prisma/client": "^6.5.0",
+		"barqode": "^0.0.2",
 		"better-auth": "^1.2.5",
+		"lucide-svelte": "^0.487.0",
 		"prisma": "^6.5.0"
 	}
 }
