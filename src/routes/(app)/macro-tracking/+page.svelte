@@ -1,18 +1,23 @@
 <script lang="ts">
+	import { toast } from 'svelte-sonner';
+	import * as Card from '$lib/components/ui/card';
+	import { Label } from '$lib/components/ui/label';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Sheet from '$lib/components/ui/sheet';
+	import * as Table from '$lib/components/ui/table';
+	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator';
+	import { Camera, Scan, ShoppingBag, Package, X } from 'lucide-svelte';
 	import { BarqodeStream, type BarcodeFormat, type DetectedBarcode } from 'barqode';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
-	import * as Table from '$lib/components/ui/table/index.js';
 
-	let result = $state('');
 	let error = $state('');
-
-	let selectedConstraints = $state({ facingMode: 'environment' });
-
-	let carbs = $state('');
-	let proteins = $state('');
-	let fat = $state('');
-	let calories = $state('');
+	let result = $state('');
+	let isLoading = $state(false);
+	let isScanning = $state(false);
+	let scannedProduct = $state<any>(null);
+	let selectedCamera = $state<string>('rear');
+	let selectedConstraints = $state<MediaTrackConstraints>({ facingMode: 'environment' });
 
 	let barcodeFormats: {
 		[key in BarcodeFormat]: boolean;
@@ -44,100 +49,123 @@
 
 	let selectedBarcodeFormats: BarcodeFormat[] = $derived(
 		Object.keys(barcodeFormats).filter(
-			(format: string) => barcodeFormats[format]
+			(format: string) => barcodeFormats[format as keyof typeof barcodeFormats]
 		) as BarcodeFormat[]
 	);
 
-	const defaultConstraintOptions: { label: string; constraints: MediaTrackConstraints }[] = [
-		{ label: 'rear camera', constraints: { facingMode: 'environment' } },
-		{ label: 'front camera', constraints: { facingMode: 'user' } }
+	const defaultConstraintOptions = [
+		{ id: 'front', label: 'Front Camera', constraints: { facingMode: 'user' } },
+		{ id: 'rear', label: 'Rear Camera', constraints: { facingMode: 'environment' } }
 	];
 
-	let constraintOptions = $state(defaultConstraintOptions);
+	type CameraOption = {
+		id: string;
+		label: string;
+		constraints: { facingMode: string } | { deviceId: string };
+	};
+	let availableCameras = $state<CameraOption[]>(defaultConstraintOptions);
+	let sheetOpen = $state(false);
 
-	async function onCameraOn() {
+	async function requestCameraPermission() {
+		try {
+			isLoading = true;
+			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+			stream.getTracks().forEach((track) => track.stop());
+			await setupCameras();
+			isScanning = true;
+		} catch (err) {
+			toast.error('Camera permission denied');
+			error = 'Please grant camera access to scan barcodes';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function setupCameras() {
 		try {
 			const devices = await navigator.mediaDevices.enumerateDevices();
 			const videoDevices = devices.filter(({ kind }) => kind === 'videoinput');
 
-			constraintOptions = [
+			availableCameras = [
 				...defaultConstraintOptions,
-				...videoDevices.map(({ deviceId, label }) => ({
-					label: `${label}`,
-					constraints: { deviceId }
+				...videoDevices.map((device) => ({
+					id: device.deviceId,
+					constraints: { deviceId: device.deviceId },
+					label: device.label || `Camera ${availableCameras.length + 1}`
 				}))
 			];
-
-			error = '';
 		} catch (e) {
-			console.error(e);
+			toast.error('Failed to enumerate cameras');
 		}
 	}
 
-	function onError(err: { name: string; message: string }) {
-		error = `[${err.name}]: `;
-
-		if (err.name === 'NotAllowedError') {
-			error += 'you need to grant camera access permission';
-		} else if (err.name === 'NotFoundError') {
-			error += 'no camera on this device';
-		} else if (err.name === 'NotSupportedError') {
-			error += 'secure context required (HTTPS, localhost)';
-		} else if (err.name === 'NotReadableError') {
-			error += 'is the camera already in use?';
-		} else if (err.name === 'OverconstrainedError') {
-			error += 'installed cameras are not suitable';
-		} else if (err.name === 'StreamApiNotSupportedError') {
-			error += 'Stream API is not supported in this browser';
-		} else {
-			error += err.message;
+	function handleCameraChange(value: string) {
+		const camera = availableCameras.find((c) => c.id === value);
+		if (camera) {
+			selectedCamera = value;
+			selectedConstraints = camera.constraints;
 		}
 	}
 
 	async function onDetect(detectedCodes: DetectedBarcode[]) {
-		result = detectedCodes[0].rawValue;
-		if (result.length > 0) {
+		if (!detectedCodes.length) return;
+
+		try {
+			isLoading = true;
+			result = detectedCodes[0].rawValue;
 			const response = await fetch(`https://world.openfoodfacts.org/api/v3/product/${result}.json`);
-
 			const data = await response.json();
-			const product = data.product;
-			const nutriments = product.nutriments;
 
-			carbs = nutriments.carbohydrates;
+			if (!data.product) {
+				toast.error('Product not found');
+				return;
+			}
 
-			proteins = nutriments.proteins;
-
-			fat = nutriments.fat;
-
-			calories = nutriments.energy;
-
-			console.log(carbs, proteins, fat, calories);
-
-			const macros_data = {
-				calories,
-				proteins,
-				carbs,
-				fat,
-				rawData: JSON.stringify(product)
+			const { nutriments } = data.product;
+			scannedProduct = {
+				...data.product,
+				nutrients: {
+					fat: nutriments.fat || 0,
+					calories: nutriments.energy || 0,
+					proteins: nutriments.proteins || 0,
+					carbs: nutriments.carbohydrates || 0
+				}
 			};
 
-			const api_response = await fetch('/api/macros', {
+			await saveToDatabase(scannedProduct);
+			sheetOpen = true;
+			toast.success('Product scanned and saved!');
+		} catch (err) {
+			toast.error('Failed to process barcode');
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function saveToDatabase(product: any) {
+		try {
+			const response = await fetch('/api/macros', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ macros_data })
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					macros_data: {
+						...product.nutrients,
+						rawData: JSON.stringify(product)
+					}
+				})
 			});
-			const api_result = await api_response.text();
-			console.log(api_result);
+
+			if (!response.ok) throw new Error('Failed to save');
+		} catch (err) {
+			throw new Error('Failed to save to database');
 		}
 	}
 
 	function paintOutline(
 		detectedCodes: {
-			cornerPoints: { x: number; y: number }[];
-			boundingBox: DOMRectReadOnly;
 			rawValue: string;
+			boundingBox: DOMRectReadOnly;
+			cornerPoints: { x: number; y: number }[];
 			format: Exclude<BarcodeFormat, 'linear_codes' | 'matrix_codes'>;
 		}[],
 		ctx: CanvasRenderingContext2D
@@ -145,7 +173,8 @@
 		for (const detectedCode of detectedCodes) {
 			const [firstPoint, ...otherPoints] = detectedCode.cornerPoints;
 
-			ctx.strokeStyle = 'red';
+			ctx.strokeStyle = '#10b981'; // emerald-500
+			ctx.lineWidth = 3;
 			ctx.beginPath();
 			ctx.moveTo(firstPoint.x, firstPoint.y);
 
@@ -160,35 +189,182 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4">
-	<Label>Select Camera</Label>
-	<Select.Root type="single" name="favoriteFruit">
-		<Select.Trigger class="w-[180px]">
-			{selectedConstraints.facingMode}
-		</Select.Trigger>
-		<Select.Content>
-			<Select.Group>
-				<Select.GroupHeading>Fruits</Select.GroupHeading>
-				{#each constraintOptions as fruit (fruit.label)}
-					<Select.Item value={fruit.label} label={fruit.label}>{fruit.label}</Select.Item>
-				{/each}
-			</Select.Group>
-		</Select.Content>
-	</Select.Root>
-	{#if error}
-		{error}
-	{/if}
+<Card.Root class="mx-auto w-full max-w-4xl">
+	<Card.Header>
+		<div class="flex items-center justify-between">
+			<div>
+				<Card.Title class="flex items-center gap-2">
+					<Scan class="h-5 w-5" />
+					Barcode Scanner
+				</Card.Title>
+				<Card.Description>Scan product barcodes to track your nutrition</Card.Description>
+			</div>
+			{#if scannedProduct}
+				<Badge variant="outline" class="flex items-center gap-1">
+					<Package class="h-3 w-3" />
+					Product Found
+				</Badge>
+			{/if}
+		</div>
+	</Card.Header>
 
-	<div style="width: 100%; aspect-ratio: 4/3;">
-		<BarqodeStream
-			constraints={selectedConstraints}
-			track={paintOutline}
-			formats={selectedBarcodeFormats}
-			{onCameraOn}
-			{onError}
-			{onDetect}
-		/>
-	</div>
-</div>
+	<Card.Content class="space-y-6">
+		{#if !isScanning}
+			<div class="flex flex-col items-center gap-4 rounded-lg bg-muted/20 py-16">
+				<Camera class="h-16 w-16 text-muted-foreground" />
+				<div class="space-y-2 text-center">
+					<h3 class="font-medium">Camera Access Required</h3>
+					<p class="max-w-md text-sm text-muted-foreground">
+						Allow camera access to scan product barcodes and automatically track nutritional data
+					</p>
+				</div>
+				<Button disabled={isLoading} onclick={requestCameraPermission}>
+					{#if isLoading}
+						<span class="animate-pulse">Requesting Camera...</span>
+					{:else}
+						Enable Camera
+					{/if}
+				</Button>
+			</div>
+		{:else}
+			<div class="space-y-4">
+				<div class="flex items-end gap-4">
+					<div class="flex-1 space-y-2">
+						<Label>Select Camera</Label>
+						<Select.Root type="single" value={selectedCamera} onValueChange={handleCameraChange}>
+							<Select.Trigger class="w-full">
+								<span
+									>{availableCameras.find((c) => c.id === selectedCamera)?.label ??
+										'Select a camera'}</span
+								>
+							</Select.Trigger>
+							<Select.Content>
+								{#each availableCameras as camera}
+									<Select.Item value={camera.id}>
+										{camera.label}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+				</div>
 
-Last result: {result}
+				<div class="relative aspect-video overflow-hidden rounded-lg border bg-background">
+					{#if isLoading}
+						<div class="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
+							<div class="flex flex-col items-center gap-2">
+								<div
+									class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+								></div>
+								<p class="text-sm text-muted-foreground">Processing...</p>
+							</div>
+						</div>
+					{/if}
+					<BarqodeStream
+						{onDetect}
+						track={paintOutline}
+						onCameraOn={setupCameras}
+						constraints={selectedConstraints}
+						formats={selectedBarcodeFormats}
+					/>
+					<div
+						class="absolute bottom-4 left-4 right-4 rounded-md bg-background/80 p-2 text-center text-xs backdrop-blur-sm"
+					>
+						Center the barcode in frame to scan
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		{#if error}
+			<div class="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
+				{error}
+			</div>
+		{/if}
+	</Card.Content>
+</Card.Root>
+
+<Sheet.Root bind:open={sheetOpen}>
+	<Sheet.Content side="bottom" class="h-[85vh] sm:h-[75vh]">
+		<div class="mx-auto w-full max-w-2xl">
+			<Sheet.Header class="text-left">
+				<div class="flex items-center justify-between">
+					<Sheet.Title class="flex items-center gap-2">
+						<ShoppingBag class="h-5 w-5" />
+						Scanned Product
+					</Sheet.Title>
+				</div>
+				{#if scannedProduct?.product_name}
+					<Sheet.Description>
+						{scannedProduct.product_name}
+					</Sheet.Description>
+				{/if}
+			</Sheet.Header>
+
+			<div class="mt-6 space-y-6">
+				{#if scannedProduct}
+					<div class="space-y-2">
+						<div class="flex items-center justify-between">
+							<h3 class="text-lg font-semibold">Nutritional Information</h3>
+							<Badge variant="outline">Saved to Tracker</Badge>
+						</div>
+						<Separator />
+						<div class="mt-4 grid grid-cols-2 gap-4">
+							<div class="flex flex-col items-center justify-center rounded-lg bg-muted/40 p-4">
+								<span class="text-3xl font-bold">{scannedProduct.nutrients.calories}</span>
+								<span class="text-xs text-muted-foreground">CALORIES</span>
+							</div>
+							<div class="flex flex-col items-center justify-center rounded-lg bg-muted/40 p-4">
+								<span class="text-3xl font-bold">{scannedProduct.nutrients.proteins}g</span>
+								<span class="text-xs text-muted-foreground">PROTEIN</span>
+							</div>
+							<div class="flex flex-col items-center justify-center rounded-lg bg-muted/40 p-4">
+								<span class="text-3xl font-bold">{scannedProduct.nutrients.carbs}g</span>
+								<span class="text-xs text-muted-foreground">CARBS</span>
+							</div>
+							<div class="flex flex-col items-center justify-center rounded-lg bg-muted/40 p-4">
+								<span class="text-3xl font-bold">{scannedProduct.nutrients.fat}g</span>
+								<span class="text-xs text-muted-foreground">FAT</span>
+							</div>
+						</div>
+					</div>
+
+					{#if scannedProduct.nutrient_levels}
+						<div class="mt-6 space-y-2">
+							<h3 class="text-lg font-semibold">Nutrition Details</h3>
+							<Separator />
+							<Table.Root>
+								<Table.Header>
+									<Table.Row>
+										<Table.Head>Nutrient</Table.Head>
+										<Table.Head class="text-right">Amount</Table.Head>
+									</Table.Row>
+								</Table.Header>
+								<Table.Body>
+									<Table.Row>
+										<Table.Cell>Calories</Table.Cell>
+										<Table.Cell class="text-right"
+											>{scannedProduct.nutrients.calories} kcal</Table.Cell
+										>
+									</Table.Row>
+									<Table.Row>
+										<Table.Cell>Proteins</Table.Cell>
+										<Table.Cell class="text-right">{scannedProduct.nutrients.proteins}g</Table.Cell>
+									</Table.Row>
+									<Table.Row>
+										<Table.Cell>Carbohydrates</Table.Cell>
+										<Table.Cell class="text-right">{scannedProduct.nutrients.carbs}g</Table.Cell>
+									</Table.Row>
+									<Table.Row>
+										<Table.Cell>Fat</Table.Cell>
+										<Table.Cell class="text-right">{scannedProduct.nutrients.fat}g</Table.Cell>
+									</Table.Row>
+								</Table.Body>
+							</Table.Root>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	</Sheet.Content>
+</Sheet.Root>

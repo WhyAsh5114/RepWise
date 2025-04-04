@@ -1,5 +1,6 @@
 import { auth } from '$lib/auth';
 import prisma from '$lib/prisma';
+
 export async function POST({ request }) {
 	const { macros_data } = await request.json();
 
@@ -14,14 +15,15 @@ export async function POST({ request }) {
 	try {
 		await prisma.macros.create({
 			data: {
-				calories: macros_data.calories,
-				protein: macros_data.proteins,
-				carbs: macros_data.carbs,
 				fat: macros_data.fat,
 				userId: session.user.id,
-				rawData: macros_data.rawData
+				carbs: macros_data.carbs,
+				rawData: macros_data.rawData,
+				protein: macros_data.proteins,
+				calories: macros_data.calories
 			}
 		});
+
 		return new Response('Macro created', { status: 200 });
 	} catch (e) {
 		console.error(e);
