@@ -1,0 +1,59 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  playwright_tests:
+    runs-on: ubuntu-latest
+    env:
+      PUBLIC_BASE_URL: http://localhost:5173
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: repwise_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-environment
+
+      - name: Set DATABASE_URL
+        run: echo "DATABASE_URL=postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/repwise_test" >> $GITHUB_ENV
+
+      - name: Initialize database schema
+        run: npx prisma db push
+
+      - name: Generate AUTH_SECRET
+        run: echo "AUTH_SECRET=$(openssl rand -base64 33)" >> $GITHUB_ENV
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
