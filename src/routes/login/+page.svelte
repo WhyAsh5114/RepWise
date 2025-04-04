@@ -48,7 +48,8 @@
 						onclick={async () => {
 							await signIn.social({
 								provider: 'google',
-								callbackURL: '/dashboard'
+								callbackURL: '/dashboard',
+								newUserCallbackURL: '/onboarding',
 							});
 						}}
 					>
