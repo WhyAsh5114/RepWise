@@ -7,7 +7,7 @@
 	let { children } = $props();
 	const session = useSession();
 
-	let isLoading: B = $state(true);
+	let isLoading: boolean = $state(true);
 	const unprotectedRoutes = ['/', '/login'];
 	const isAuthenticated = () => !!$session.data?.user?.id;
 
