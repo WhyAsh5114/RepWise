@@ -141,8 +141,22 @@
 
 		isSubmitting = true;
 		try {
-			await new Promise((resolve) => setTimeout(resolve, 1500));
 			console.log('Form submitted:', getFormData());
+			const onboarding = getFormData();
+
+			const response = await fetch('/api/onboarding', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ onboarding })
+			});
+
+			if (!response.ok) {
+				throw new Error('Network response was not ok');
+			}
+			const data = await response.text();
+			console.log(data);
 			isSuccess = true;
 			toast.success('Your fitness profile has been created!');
 		} catch (error) {

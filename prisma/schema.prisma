@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
   email         String
   emailVerified Boolean
@@ -19,6 +19,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   Macros        Macros[]
+  Onboarding    Onboarding[]
 
   @@unique([email])
   @@map("user")
@@ -78,4 +79,19 @@ model Macros {
   userId   String
   user     User   @relation(fields: [userId], references: [id])
   rawData  String
+}
+
+model Onboarding {
+  age                Int
+  weight             Int
+  height             Int
+  gender             String
+  injuries           String
+  fitnessGoal        String
+  daysPerWeek        Int
+  fitnessLevel       String
+  availableEquipment String[]
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id])
 }
