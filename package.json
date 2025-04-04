@@ -1,8 +1,8 @@
 {
-	"name": "repwise",
 	"private": true,
-	"version": "0.0.1",
 	"type": "module",
+	"name": "repwise",
+	"version": "0.0.1",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -13,7 +13,8 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test:e2e": "playwright test",
-		"test": "npm run test:e2e"
+		"test": "npm run test:e2e",
+		"postinstall": "npx prisma generate"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
