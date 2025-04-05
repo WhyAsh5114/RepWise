@@ -1,5 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		Table,
+		TableBody,
+		TableCell,
+		TableHead,
+		TableHeader,
+		TableRow
+	} from '$lib/components/ui/table';
+	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import { Loader2 } from 'lucide-svelte';
+	import {
+		Sheet,
+		SheetContent,
+		SheetHeader,
+		SheetTitle,
+		SheetDescription,
+		SheetClose
+	} from '$lib/components/ui/sheet';
 
 	let videoEl: HTMLVideoElement;
 	let canvasEl: HTMLCanvasElement;
@@ -8,6 +28,7 @@
 	let result = '';
 	let error = '';
 	let loading = false;
+	let sheetOpen = false;
 
 	let parsedNutrition: {
 		calories?: string;
@@ -73,9 +94,9 @@
 				parsedNutrition.fat = extractValue('Total Fat', result);
 				parsedNutrition.carbs = extractValue('Total Carbohydrate', result);
 				parsedNutrition.protein = extractValue('Protein', result);
+				sheetOpen = true;
 			} catch (err) {
-				if (err instanceof Error)
-				error = err.message;
+				if (err instanceof Error) error = err.message;
 			} finally {
 				loading = false;
 			}
@@ -85,27 +106,75 @@
 
 <svelte:window on:beforeunload={() => stream?.getTracks().forEach((t) => t.stop())} />
 
-<div>
-	<h2>Scan Nutrition Label</h2>
+<Card class="mx-auto w-full max-w-md">
+	<CardHeader>
+		<CardTitle>Scan Nutrition Label</CardTitle>
+	</CardHeader>
+	<CardContent>
+		<div class="space-y-4">
+			<div class="relative aspect-video overflow-hidden rounded-lg bg-black">
+				<video bind:this={videoEl} autoplay muted playsinline class="h-full w-full object-cover"
+				></video>
+				<canvas bind:this={canvasEl} class="hidden"></canvas>
+			</div>
 
-	<video bind:this={videoEl} autoplay muted playsinline></video>
-	<canvas bind:this={canvasEl} style="display: none;"></canvas>
+			<Button
+				onclick={captureAndSendOCR}
+				disabled={loading || !stream}
+				variant="default"
+				class="w-full"
+			>
+				{#if loading}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					Processing...
+				{:else}
+					Start Processing
+				{/if}
+			</Button>
 
-	<button on:click={captureAndSendOCR} disabled={loading || !stream}>
-		{loading ? 'Processing...' : 'Start Processing'}
-	</button>
+			{#if error}
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
+			{/if}
+		</div>
+	</CardContent>
+</Card>
 
-	{#if error}
-		<p style="color: red;">Error: {error}</p>
-	{/if}
+<Sheet bind:open={sheetOpen}>
+	<SheetContent class="h-full overflow-y-auto">
+		<SheetHeader>
+			<SheetTitle>Nutrition Information</SheetTitle>
+			<SheetDescription>Extracted data from nutrition label</SheetDescription>
+		</SheetHeader>
 
-	{#if parsedNutrition.calories}
-		<h3>Extracted Nutrition Info</h3>
-		<ul>
-			<li><strong>Calories:</strong> {parsedNutrition.calories} / 100g</li>
-			<li><strong>Fats:</strong> {parsedNutrition.fat}g / 100g</li>
-			<li><strong>Carbohydrates:</strong> {parsedNutrition.carbs}g / 100g</li>
-			<li><strong>Protein:</strong> {parsedNutrition.protein}g / 100g</li>
-		</ul>
-	{/if}
-</div>
+		<div class="py-6">
+			<Table>
+				<TableHeader>
+					<TableRow>
+						<TableHead>Nutrient</TableHead>
+						<TableHead>Amount per 100g</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					<TableRow>
+						<TableCell class="font-medium">Calories</TableCell>
+						<TableCell>{parsedNutrition.calories || '-'}</TableCell>
+					</TableRow>
+					<TableRow>
+						<TableCell class="font-medium">Fats</TableCell>
+						<TableCell>{parsedNutrition.fat ? `${parsedNutrition.fat}g` : '-'}</TableCell>
+					</TableRow>
+					<TableRow>
+						<TableCell class="font-medium">Carbohydrates</TableCell>
+						<TableCell>{parsedNutrition.carbs ? `${parsedNutrition.carbs}g` : '-'}</TableCell>
+					</TableRow>
+					<TableRow>
+						<TableCell class="font-medium">Protein</TableCell>
+						<TableCell>{parsedNutrition.protein ? `${parsedNutrition.protein}g` : '-'}</TableCell>
+					</TableRow>
+				</TableBody>
+			</Table>
+		</div>
+	</SheetContent>
+</Sheet>
