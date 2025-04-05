@@ -1,7 +1,7 @@
-import { auth } from '$lib/auth';
-import prisma from '$lib/prisma';
 import { json } from '@sveltejs/kit';
+import prisma from '$lib/prisma';
 import type { RequestHandler } from './$types';
+import { auth } from '$lib/auth';
 
 export const POST: RequestHandler = async ({ request, params }) => {
 	try {
@@ -15,9 +15,11 @@ export const POST: RequestHandler = async ({ request, params }) => {
 
 		const roomId = params.roomId;
 
+		// Check if the user is the room creator
 		const room = await prisma.room.findUnique({
 			where: {
-				id: roomId
+				id: roomId,
+				isActive: true
 			}
 		});
 
@@ -25,11 +27,11 @@ export const POST: RequestHandler = async ({ request, params }) => {
 			return json({ message: 'Room not found' }, { status: 404 });
 		}
 
-		// Only room creator can start the room
 		if (room.creatorId !== session.user.id) {
-			return json({ message: 'Only room creator can start the room' }, { status: 403 });
+			return json({ message: 'Only the room creator can start the competition' }, { status: 403 });
 		}
 
+		// Update room status to indicate competition has started
 		await prisma.room.update({
 			where: {
 				id: roomId
@@ -39,9 +41,9 @@ export const POST: RequestHandler = async ({ request, params }) => {
 			}
 		});
 
-		return json({ message: 'Room started successfully' });
+		return json({ message: 'Competition started successfully' });
 	} catch (error) {
-		console.error('Error starting room:', error);
-		return json({ message: 'Failed to start room' }, { status: 500 });
+		console.error('Error starting competition:', error);
+		return json({ message: 'Failed to start competition' }, { status: 500 });
 	}
 };
