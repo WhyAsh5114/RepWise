@@ -1,7 +1,7 @@
 import { auth } from '$lib/auth';
 import prisma from '$lib/prisma';
 
-export async function POST({ request }) {
+export async function POST({ request }: {request: Request}) {
 	const body = (await request.json()) as {
 		heartRate: number;
 		timestamp: EpochTimeStamp;
