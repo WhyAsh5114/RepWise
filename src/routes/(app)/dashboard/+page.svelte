@@ -60,6 +60,16 @@
 			.join(' ');
 	};
 
+	function getFoodName(rawData: string): string {
+		try {
+			const data = JSON.parse(rawData);
+			const foodName = data.category_properties?.['ciqual_food_name:en'] || 'Unknown Food';
+			return foodName.length > 25 ? foodName.substring(0, 25) + '...' : foodName;
+		} catch (err) {
+			return 'Unknown Food';
+		}
+	}
+
 	async function fetchDashboardData() {
 		try {
 			const response = await fetch('/api/dashboard');
@@ -78,6 +88,7 @@
 			const response = await fetch('/api/macros');
 			if (!response.ok) throw new Error('Failed to fetch macros data');
 			macrosData = await response.json();
+			console.log(JSON.parse(macrosData[0].rawData).category_properties);
 		} catch (err) {
 			toast.error('Error loading macros data');
 		}
@@ -293,6 +304,7 @@
 							<Table.Header>
 								<Table.Row>
 									<Table.Head class="w-12 text-center">Sr. No</Table.Head>
+									<Table.Head>Food Item</Table.Head>
 									<Table.Head>Date</Table.Head>
 									<Table.Head class="text-right">Calories</Table.Head>
 									<Table.Head class="text-right">Protein</Table.Head>
@@ -303,6 +315,7 @@
 								{#each macrosData as macros, i}
 									<Table.Row class="transition-colors hover:bg-muted/50">
 										<Table.Cell class="text-center">{i + 1}</Table.Cell>
+										<Table.Cell>{getFoodName(macros.rawData)}</Table.Cell>
 										<Table.Cell>{format(new Date(), 'MMM dd, yyyy')}</Table.Cell>
 										<Table.Cell class="text-right">{macros.calories} kcal</Table.Cell>
 										<Table.Cell class="text-right">{macros.protein}g</Table.Cell>
