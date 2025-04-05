@@ -1,6 +1,5 @@
 import { Type } from '@google/genai';
 
-// Define a function that the model can call to output a structured workout plan
 export const createWorkoutPlanFunctionDeclaration = {
 	name: 'create_workout_plan',
 	description: 'Outputs a structured workout routine with specific days, exercises, and details.',
@@ -32,7 +31,8 @@ export const createWorkoutPlanFunctionDeclaration = {
 						},
 						focus: {
 							type: Type.STRING,
-							description: 'Main focus of this workout day (e.g., "Upper Body", "Lower Body", "Cardio")'
+							description:
+								'Main focus of this workout day (e.g., "Upper Body", "Lower Body", "Cardio")'
 						},
 						exercises: {
 							type: Type.ARRAY,
