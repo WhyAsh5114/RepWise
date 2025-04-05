@@ -30,7 +30,28 @@
 	let lastVideoTime = -1;
 	let poseSequence = $state<PoseLandmarkerResult[]>();
 	let feedbackMessages = $state<string[]>([]);
+	let feedbackScore = $state<number>(0);
+	let scoreHistory = $state<number[]>([]);
 	let lastVoiceFeedbackTime = 0;
+
+	// Function to calculate weighted average score - gives more weight to recent scores
+	function calculateAverageScore(scores: number[]): number {
+		if (scores.length === 0) return 0;
+		if (scores.length === 1) return scores[0];
+
+		// Apply weighted average - more recent scores get higher weight
+		let totalWeight = 0;
+		let weightedSum = 0;
+
+		for (let i = 0; i < scores.length; i++) {
+			// Linear weighting: newer scores get higher weights
+			const weight = i + 1;
+			weightedSum += scores[i] * weight;
+			totalWeight += weight;
+		}
+
+		return Math.round(weightedSum / totalWeight);
+	}
 
 	// Throttled function to speak the latest feedback
 	async function speakLatestFeedback() {
@@ -186,7 +207,12 @@
 		if (poseSequence && poseSequence.length > 0) {
 			const feedback = exerciseFeedbacks.find((f) => f.name === exerciseName);
 			if (feedback) {
-				feedbackMessages = feedback.feedbackFunction(poseSequence);
+				const result = feedback.feedbackFunction(poseSequence);
+				feedbackMessages = result.feedbacks;
+
+				// Add final score to history and calculate average
+				scoreHistory.push(result.score);
+				feedbackScore = calculateAverageScore(scoreHistory);
 			}
 		}
 	}
@@ -195,6 +221,8 @@
 		if (!videoElement || !canvasElement) return;
 		poseSequence = [];
 		feedbackMessages = [];
+		feedbackScore = 0;
+		scoreHistory = [];
 		lastVoiceFeedbackTime = 0;
 
 		const canvasCtx = canvasElement.getContext('2d')!;
@@ -229,7 +257,18 @@
 						if (poseSequence && poseSequence.length % 10 === 0) {
 							const feedback = exerciseFeedbacks.find((f) => f.name === exerciseName);
 							if (feedback) {
-								feedbackMessages = feedback.feedbackFunction(poseSequence);
+								const result = feedback.feedbackFunction(poseSequence);
+								feedbackMessages = result.feedbacks;
+
+								// Add score to history and update with average
+								scoreHistory.push(result.score);
+
+								// Keep only the last 5 scores to be more responsive to recent changes
+								if (scoreHistory.length > 5) {
+									scoreHistory = scoreHistory.slice(-5);
+								}
+
+								feedbackScore = calculateAverageScore(scoreHistory);
 							}
 						}
 					}
@@ -292,7 +331,13 @@
 
 	{#if feedbackMessages.length > 0}
 		<div class="my-4 rounded-md border bg-muted p-4">
-			<h3 class="mb-2 text-lg font-semibold">Form Feedback:</h3>
+			<div class="flex justify-between items-center mb-2">
+				<h3 class="text-lg font-semibold">Form Feedback:</h3>
+				<div class="flex flex-col items-end">
+					<div class="text-xl font-bold">Score: {feedbackScore}/100</div>
+					<div class="text-xs text-muted-foreground">Based on {scoreHistory.length} measurement{scoreHistory.length !== 1 ? 's' : ''}</div>
+				</div>
+			</div>
 			<ul class="list-disc space-y-1 pl-5">
 				{#each feedbackMessages as message}
 					<li>{message}</li>
