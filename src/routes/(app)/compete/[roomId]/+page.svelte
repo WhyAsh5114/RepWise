@@ -33,6 +33,7 @@
 
 			room = data.room;
 			participants = data.participants;
+			console.log(participants)
 			if (room?.status === 'ACTIVE') {
 				toast.success('Competition has started!');
 				goto(`/compete/${roomId}/play`);
