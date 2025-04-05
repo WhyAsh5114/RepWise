@@ -37,6 +37,8 @@
 	let localTrack = $state<ICameraVideoTrack | null>(null);
 	let remoteUsers = $state<Record<string, IAgoraRTCRemoteUser>>({});
 	let isJoined = $state(false);
+	let localVideoPlaying = $state(false); // Track if local video is playing
+	let localVideoAttempts = $state(0); // Track retry attempts
 
 	// Simple scoring system - just for this session
 	let scores = $state<Record<string, number>>({});
@@ -47,12 +49,45 @@
 
 	let session = authClient.useSession();
 
+	// Retry playing local video with backoff
+	function playLocalVideo(attempt = 0) {
+		if (!localTrack || localVideoPlaying) return;
+
+		try {
+			const localPlayerElement = document.getElementById('local-player');
+			if (localPlayerElement) {
+				// Clear the element first
+				while (localPlayerElement.firstChild) {
+					localPlayerElement.firstChild.remove();
+				}
+
+				localTrack.play('local-player');
+				console.log(`[AGORA] Playing local video (attempt ${attempt})`);
+				localVideoPlaying = true;
+			} else {
+				console.warn(`[AGORA] Local player element not found`);
+				if (attempt < 5) {
+					// Retry with exponential backoff
+					setTimeout(() => playLocalVideo(attempt + 1), 500 * Math.pow(1.5, attempt));
+				}
+			}
+		} catch (err) {
+			console.error(`[AGORA] Error playing local video:`, err);
+			localVideoPlaying = false;
+
+			if (attempt < 5) {
+				setTimeout(() => playLocalVideo(attempt + 1), 500 * Math.pow(1.5, attempt));
+			}
+		}
+	}
+
 	// Connect to Agora immediately - this is all we need for presence
 	async function connectToAgora() {
 		if (!browser) return;
 
 		try {
 			loading = true;
+			localVideoPlaying = false;
 
 			// Dynamically import Agora RTC SDK only on the client side
 			const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
@@ -172,22 +207,10 @@
 			console.log(`[AGORA] Publishing camera track`);
 			await agoraClient.publish([localTrack]);
 
-			// Play local video
+			// Play local video with improved retry logic
 			setTimeout(() => {
-				if (localTrack) {
-					try {
-						const localPlayerElement = document.getElementById('local-player');
-						if (localPlayerElement) {
-							localTrack.play('local-player');
-							console.log(`[AGORA] Playing local video`);
-						} else {
-							console.warn(`[AGORA] Local player element not found`);
-						}
-					} catch (err) {
-						console.error(`[AGORA] Error playing local video:`, err);
-					}
-				}
-			}, 500);
+				playLocalVideo(0);
+			}, 300);
 
 			// Get remote users after a short delay
 			setTimeout(() => {
@@ -285,6 +308,12 @@
 						isCompetitionActive = true;
 					}
 				}
+
+				// Try again to play local video after all remote users are processed
+				if (!localVideoPlaying && localTrack) {
+					console.log('[AGORA] Retrying local video play after initialization');
+					playLocalVideo(0);
+				}
 			}, 2000);
 		} catch (err) {
 			console.error('[AGORA] Error connecting:', err);
@@ -303,6 +332,7 @@
 
 		try {
 			console.log('[AGORA] Starting high quality video for competition');
+			localVideoPlaying = false;
 
 			// If we already have a track, close it first
 			if (localTrack) {
@@ -319,15 +349,9 @@
 			await agoraClient.publish([localTrack]);
 			console.log('[AGORA] Published high quality video');
 
+			// Use our improved play function with retries
 			setTimeout(() => {
-				if (localTrack) {
-					try {
-						localTrack.play('local-player');
-						console.log('[AGORA] Playing high quality local video');
-					} catch (err) {
-						console.error('[AGORA] Error playing high quality video:', err);
-					}
-				}
+				playLocalVideo(0);
 			}, 300);
 
 			toast.success('Joined video stream!');
@@ -351,6 +375,7 @@
 
 			isJoined = false;
 			remoteUsers = {};
+			localVideoPlaying = false;
 
 			// Redirect to compete page
 			goto('/compete');
@@ -450,6 +475,8 @@
 			if (agoraClient) {
 				agoraClient.leave();
 			}
+
+			localVideoPlaying = false;
 		}
 	});
 
