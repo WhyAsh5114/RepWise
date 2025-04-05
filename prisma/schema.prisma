@@ -23,6 +23,7 @@ model User {
   createdRooms  Room[]            @relation("RoomCreator")
   roomsJoined   RoomParticipant[]
   HeartRate     HeartRate[]
+  Routines      Routines[]
 
   @@unique([email])
   @@map("user")
@@ -136,4 +137,16 @@ model HeartRate {
   userId    String
   timestamp DateTime
   heartRate Int
+}
+
+model Routines {
+  exerciseName String
+  sets         Int
+  reps         String
+  load         String?
+  rest         String?
+  tips         String[]
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
 }
