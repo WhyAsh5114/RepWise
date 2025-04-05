@@ -14,7 +14,8 @@
 		LogInIcon,
 		UserRound,
 		UserRoundIcon,
-		DumbbellIcon
+		DumbbellIcon,
+		ScanQrCodeIcon
 	} from 'lucide-svelte';
 
 	const sidebar = useSidebar();
@@ -43,6 +44,11 @@
 					label: 'Onboarding',
 					href: '/onboarding',
 					icon: ClipboardListIcon
+				},
+				{
+					label: 'Nutritional OCR',
+					href: '/nutritional-ocr',
+					icon: ScanQrCodeIcon
 				}
 			]
 		},
