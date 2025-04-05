@@ -148,7 +148,19 @@
 				}
 			};
 
-			await saveToDatabase(scannedProduct);
+			const macros_data = {
+				calories: scannedProduct.nutrients.calories,
+				protein: scannedProduct.nutrients.proteins,
+				fat: scannedProduct.nutrients.fat,
+				carbs: scannedProduct.nutrients.carbs,
+				rawData: JSON.stringify(scannedProduct)
+			};
+
+			const api_response = await fetch('/api/macros', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ macros_data })
+			});
 			sheetOpen = true;
 			toast.success('Product scanned and saved!');
 		} catch (err) {
@@ -163,12 +175,7 @@
 			const response = await fetch('/api/macros', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					macros_data: {
-						...product.nutrients,
-						rawData: JSON.stringify(product)
-					}
-				})
+				body: JSON.stringify({ product })
 			});
 
 			if (!response.ok) throw new Error('Failed to save');

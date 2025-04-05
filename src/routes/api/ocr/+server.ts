@@ -1,3 +1,4 @@
+import { OCR_API_KEY } from '$env/static/private';
 import * as mindee from 'mindee';
 
 export async function POST({ request }) {
@@ -16,7 +17,7 @@ export async function POST({ request }) {
 		const buffer = Buffer.from(arrayBuffer);
 		const fileName = fileData.name || 'uploaded-file.ext';
 
-		const mindeeClient = new mindee.Client({ apiKey: '8f7f47f3bb1c85c56aff54a7393dbb9a' });
+		const mindeeClient = new mindee.Client({ apiKey: OCR_API_KEY });
 
 		const inputSource = mindeeClient.docFromBuffer(buffer, fileName);
 		const apiResponse = await mindeeClient.enqueueAndParse(
@@ -25,14 +26,15 @@ export async function POST({ request }) {
 		);
 
 		return new Response(
-			JSON.stringify({ success: true, result: apiResponse.document.toString() }),
+			JSON.stringify({ success: true, result: apiResponse.document?.toString() }),
 			{ headers: { 'Content-Type': 'application/json' } }
 		);
 	} catch (err) {
 		console.error('Nutrition OCR Error:', err);
-		return new Response(
-			JSON.stringify({ success: false, error: err.message || 'Internal error' }),
-			{ status: 500, headers: { 'Content-Type': 'application/json' } }
-		);
+		const errorMessage = err instanceof Error ? err.message : 'Internal error';
+		return new Response(JSON.stringify({ success: false, error: errorMessage }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 }
