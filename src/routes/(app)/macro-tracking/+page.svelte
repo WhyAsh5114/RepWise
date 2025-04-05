@@ -10,7 +10,13 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { Camera, Scan, ShoppingBag, Package, X } from 'lucide-svelte';
 	import { BarqodeStream, type BarcodeFormat, type DetectedBarcode } from 'barqode';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { goto } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 
+	let showRedirectModal = $state(false);
+	let countdown = $state(3);
+	let countdownInterval: NodeJS.Timeout;
 	let error = $state('');
 	let result = $state('');
 	let isLoading = $state(false);
@@ -117,7 +123,17 @@
 			const data = await response.json();
 
 			if (!data.product) {
-				toast.error('Product not found');
+				showRedirectModal = true;
+				countdown = 3;
+
+				countdownInterval = setInterval(() => {
+					countdown--;
+					if (countdown === 0) {
+						clearInterval(countdownInterval);
+						goto('/nutritional-ocr');
+					}
+				}, 1000);
+
 				return;
 			}
 
@@ -187,7 +203,33 @@
 			ctx.stroke();
 		}
 	}
+
+	onDestroy(() => {
+		if (countdownInterval) clearInterval(countdownInterval);
+	});
 </script>
+
+<Dialog.Root open={showRedirectModal}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Product Not Found</Dialog.Title>
+			<Dialog.Description>
+				Redirecting to manual entry in {countdown} seconds...
+			</Dialog.Description>
+		</Dialog.Header>
+		<div class="flex justify-end">
+			<Button
+				variant="outline"
+				onclick={() => {
+					clearInterval(countdownInterval);
+					goto('/nutritional-ocr');
+				}}
+			>
+				Redirect Now
+			</Button>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>
 
 <Card.Root class="mx-auto w-full max-w-4xl">
 	<Card.Header>
