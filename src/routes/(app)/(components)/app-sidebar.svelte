@@ -142,16 +142,6 @@
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content class="w-[var(--bits-dropdown-menu-anchor-width)]">
 							<DropdownMenu.Group>
-								<DropdownMenu.Item onclick={() => sidebar.setOpenMobile(false)}>
-									{#snippet child({ props })}
-										<a href="/settings" {...props}><CogIcon /> Settings</a>
-									{/snippet}
-								</DropdownMenu.Item>
-								<DropdownMenu.Item onclick={() => sidebar.setOpenMobile(false)}>
-									{#snippet child({ props })}
-										<a href="/profile" {...props}><UserRoundIcon /> Profile</a>
-									{/snippet}
-								</DropdownMenu.Item>
 								<DropdownMenu.Item
 									class="text-destructive"
 									onclick={() => {

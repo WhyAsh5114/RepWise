@@ -37,7 +37,7 @@
 	});
 </script>
 
-<div class="container mx-auto max-w-3xl space-y-6 p-8">
+<div class="container mx-auto max-w-3xl space-y-6 p-4">
 	{#if error}
 		<div class="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
 			{error}
@@ -72,7 +72,6 @@
 							</Card.Description>
 						</div>
 					</div>
-					<Button variant="outline">Edit Profile</Button>
 				</div>
 			</Card.Header>
 
