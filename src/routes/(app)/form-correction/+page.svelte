@@ -1,21 +1,38 @@
 <script lang="ts">
+	import { Info } from 'lucide-svelte';
 	import H1 from '$lib/components/typography/h1.svelte';
-	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
-	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Popover from '$lib/components/ui/popover';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
-	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import DetectionComponent from '$lib/detection-component.svelte';
+	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 
-	let selectedExercise = $state('Squat');
-	let timer = $state(5);
-	let cameras = $state<MediaDeviceInfo[]>([]);
+	let timer = $state(3);
 	let selectedCamera = $state('');
 	let detectionStarted = $state(false);
-	let permissionStatus = $state<'granted' | 'denied' | 'prompt' | 'checking'>('checking');
-	let inputSource = $state<'webcam' | 'file'>('webcam');
 	let videoFile = $state<File | null>(null);
+	let cameras = $state<MediaDeviceInfo[]>([]);
+	let inputSource = $state<'webcam' | 'file'>('webcam');
+	let selectedExercise = $state<keyof typeof exerciseGuides>('Squat');
+	let permissionStatus = $state<'granted' | 'denied' | 'prompt' | 'checking'>('checking');
+
+	const exerciseGuides = {
+		Squat: {
+			image: '/exercises/squat.png',
+			description:
+				'Place your camera at hip height and about 6-8 feet away, from the side view to best capture the full range of motion.',
+			placement: 'Side view, hip height'
+		},
+		'Push Up': {
+			image: '/exercises/pushup.png',
+			description:
+				'Position your camera at floor level, about 4-6 feet away from your side to capture your full body position.',
+			placement: 'Side view, ground level'
+		}
+	};
 
 	$effect(() => {
 		if (inputSource === 'webcam') {
@@ -30,7 +47,6 @@
 			const result = await navigator.permissions.query({ name: 'camera' });
 			permissionStatus = result.state as 'granted' | 'denied' | 'prompt';
 
-			// Set up listener for permission changes
 			result.addEventListener('change', () => {
 				permissionStatus = result.state as 'granted' | 'denied' | 'prompt';
 				if (result.state === 'granted') {
@@ -39,10 +55,10 @@
 			});
 		} catch (error) {
 			console.error('Error checking camera permission:', error);
-			// Fallback method: try to access the camera
+
 			try {
 				const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-				stream.getTracks().forEach((track) => track.stop()); // Clean up
+				stream.getTracks().forEach((track) => track.stop());
 				permissionStatus = 'granted';
 			} catch {
 				permissionStatus = 'denied';
@@ -53,7 +69,7 @@
 	async function requestCameraPermission() {
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-			stream.getTracks().forEach((track) => track.stop()); // Clean up
+			stream.getTracks().forEach((track) => track.stop());
 			permissionStatus = 'granted';
 			await getCameras();
 			return true;
@@ -118,16 +134,47 @@
 	class="grid grid-cols-2 items-end gap-2 rounded-md border bg-card p-6"
 	onsubmit={startDetection}
 >
-	<Label class="col-span-2 space-y-1.5">
-		<span>Select an exercise</span>
-		<Select.Root type="single" bind:value={selectedExercise} required>
-			<Select.Trigger class="w-full">{selectedExercise}</Select.Trigger>
-			<Select.Content>
-				<Select.Item value="Squat">Squat</Select.Item>
-				<Select.Item value="Push Up">Push Up</Select.Item>
-			</Select.Content>
-		</Select.Root>
-	</Label>
+	<div class="col-span-2 flex items-end gap-2">
+		<Label class="flex-1 space-y-1.5">
+			<span>Select an exercise</span>
+			<Select.Root type="single" bind:value={selectedExercise} required>
+				<Select.Trigger class="w-full">{selectedExercise}</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="Squat">Squat</Select.Item>
+					<Select.Item value="Push Up">Push Up</Select.Item>
+				</Select.Content>
+			</Select.Root>
+		</Label>
+
+		<Popover.Root>
+			<Popover.Trigger>
+				<Button variant="outline" size="icon" class="h-10 w-10">
+					<Info class="h-5 w-5" />
+					<span class="sr-only">View camera placement guide</span>
+				</Button>
+			</Popover.Trigger>
+			<Popover.Content class="w-80">
+				<div class="grid gap-4">
+					<div class="space-y-2">
+						<h4 class="font-medium leading-none">Camera Placement Guide</h4>
+						<p class="text-sm text-muted-foreground">
+							{exerciseGuides[selectedExercise].placement}
+						</p>
+					</div>
+					<div class="rounded-lg border">
+						<img
+							src={exerciseGuides[selectedExercise].image}
+							alt={`Camera placement guide for ${selectedExercise}`}
+							class="aspect-video w-full rounded-lg object-cover"
+						/>
+					</div>
+					<p class="text-sm text-muted-foreground">
+						{exerciseGuides[selectedExercise].description}
+					</p>
+				</div>
+			</Popover.Content>
+		</Popover.Root>
+	</div>
 
 	<Label class="col-span-2 space-y-1.5">
 		<span>Input Source</span>

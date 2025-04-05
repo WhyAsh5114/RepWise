@@ -1,0 +1,116 @@
+# RepWise
+
+RepWise is an advanced AI-powered fitness application that helps users achieve their fitness goals through personalized workout plans, real-time form correction, and comprehensive health tracking.
+
+## Features
+
+- **AI-Powered Workout Generation**: Personalized plans based on user goals, equipment, and fitness level
+- **Real-time Pose Detection**: Live form correction with voice feedback
+- **Macro & Nutrition Tracking**: Food logging with barcode scanning capabilities
+- **Gamification**: PVP fitness challenges and achievement tracking
+- **WearOS & Health Connect**: Seamless data synchronization across devices
+- **WebRTC Integration**: Real-time form scoring and interactive workout sessions
+- **Personalized User Onboarding**: Comprehensive fitness profile creation
+
+## Tech Stack
+
+- **Frontend**: SvelteKit with TypeScript
+- **UI Components**: Custom component library with responsive design
+- **Database**: Prisma ORM
+- **Authentication**: User authentication and profile management
+- **Real-time Communication**: WebRTC for live workout feedback
+- **AI Integration**: For workout plan generation and form correction
+- **PWA Support**: Progressive Web App capabilities
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or later)
+- npm or pnpm
+- Database (see Prisma schema for requirements)
+
+### Installation
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/yourusername/RepWise.git
+   cd RepWise
+   ```
+
+2. Install dependencies
+   ```bash
+   npm install
+   # or
+   pnpm install
+   ```
+
+3. Set up environment variables (create a .env file in the root directory)
+
+4. Initialize the database
+   ```bash
+   npx prisma db push
+   ```
+
+5. Start the development server
+   ```bash
+   npm run dev
+   # or
+   pnpm dev
+   ```
+
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```
+DATABASE_URL="your-database-connection-string"
+ELEVENLABS_API_KEY="elevenlabs-api-key"
+GEMINI_API_KEY="gemini-api-key"
+```
+
+## Database Schema
+
+The project uses Prisma ORM with a schema that includes:
+
+- User profiles
+- Fitness onboarding data (goals, level, equipment, etc.)
+- Workout plans and history
+- Nutrition tracking
+
+## API Integrations
+
+- **Computer Vision API**: For pose detection and form analysis
+- **Nutrition Database API**: For food and barcode scanning data
+- **AI Services**: For workout program generation and personalization
+
+## Project Structure
+
+```
+RepWise/
+├── prisma/              # Database schema and migrations
+├── src/
+│   ├── routes/          # SvelteKit routes
+│   │   ├── (app)/       # Authenticated app routes
+│   │   ├── api/         # API endpoints
+│   ├── lib/             # Shared utilities and components
+│   ├── components/      # Reusable UI components
+├── static/              # Static assets
+```
+
+## Deployment
+
+The application can be deployed to any platform supporting Node.js applications:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

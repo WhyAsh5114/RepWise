@@ -1,16 +1,17 @@
 <script lang="ts">
-	import CustomScrollArea from '$lib/components/ui/scroll-area/custom-scroll-area.svelte';
 	import { Separator } from '$lib/components/ui/separator';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AppSidebar from './(components)/app-sidebar.svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import LinkBreadcrumbs from './(components)/link-breadcrumbs.svelte';
+	import CustomScrollArea from '$lib/components/ui/scroll-area/custom-scroll-area.svelte';
 
 	let { children } = $props();
 </script>
 
 <Sidebar.Provider>
 	<AppSidebar />
-	<div class="mx-auto flex h-screen w-full max-w-xl flex-col">
+
+	<div class="mx-auto flex h-screen w-full max-w-xl md:max-w-4xl flex-col">
 		<header
 			class="sticky top-0 z-50 flex min-h-12 items-center gap-2 bg-background/80 px-4 py-2 backdrop-blur-sm"
 		>

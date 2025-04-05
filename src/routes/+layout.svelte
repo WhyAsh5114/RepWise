@@ -2,7 +2,9 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { ModeWatcher } from 'mode-watcher';
 	import { useSession } from '$lib/auth-client';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 
 	let { children } = $props();
 	const session = useSession();
@@ -25,6 +27,13 @@
 		}
 	});
 </script>
+
+<svelte:head>
+	<title>RepWise</title>
+</svelte:head>
+
+<ModeWatcher />
+<Toaster />
 
 {#if isLoading}
 	<div class="flex h-screen items-center justify-center">
