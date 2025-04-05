@@ -15,6 +15,7 @@ jobs:
       PUBLIC_BASE_URL: http://localhost:5173
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
     services:
       postgres:
