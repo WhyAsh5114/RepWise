@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import '../app.css';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { ModeWatcher } from 'mode-watcher';
 	import { useSession } from '$lib/auth-client';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
-	import { ModeWatcher } from 'mode-watcher';
-	import '../app.css';
 
 	let { children } = $props();
 	const session = useSession();
