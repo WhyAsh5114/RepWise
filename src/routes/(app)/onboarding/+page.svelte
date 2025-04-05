@@ -412,7 +412,7 @@
 								/>
 							</div>
 
-							<Alert variant="default" class="border-amber-200 bg-amber-50">
+							<Alert variant="default" class="border-primary bg-background/50">
 								<AlertCircle class="h-4 w-4 text-amber-500" />
 								<AlertTitle>Important</AlertTitle>
 								<AlertDescription>
