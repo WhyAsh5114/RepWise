@@ -243,14 +243,14 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 						rightShoulder,
 						rightHip
 					);
-					bodyAlignment.push(Math.abs(180 - backAngle)); // Deviation from straight line
+					bodyAlignment.push(Math.abs(90 - backAngle)); // Deviation from straight line
 				} else if (leftShoulder && leftHip && leftElbow) {
 					const backAngle = calculateAngle(
 						{ x: leftShoulder.x, y: leftShoulder.y - 1, z: leftShoulder.z },
 						leftShoulder,
 						leftHip
 					);
-					bodyAlignment.push(Math.abs(180 - backAngle)); // Deviation from straight line
+					bodyAlignment.push(Math.abs(90 - backAngle)); // Deviation from straight line
 				}
 
 				// Measure shoulder alignment with head (to detect shrugging or sinking)
@@ -273,14 +273,13 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 				// Measure hand position relative to shoulders
 				if (rightShoulder && rightWrist) {
 					const distance = Math.sqrt(
-						Math.pow(rightShoulder.x - rightWrist.x, 2) + 
-						Math.pow(rightShoulder.z - rightWrist.z, 2)
+						Math.pow(rightShoulder.x - rightWrist.x, 2) +
+							Math.pow(rightShoulder.z - rightWrist.z, 2)
 					);
 					wristShoulderDistances.push(distance);
 				} else if (leftShoulder && leftWrist) {
 					const distance = Math.sqrt(
-						Math.pow(leftShoulder.x - leftWrist.x, 2) + 
-						Math.pow(leftShoulder.z - leftWrist.z, 2)
+						Math.pow(leftShoulder.x - leftWrist.x, 2) + Math.pow(leftShoulder.z - leftWrist.z, 2)
 					);
 					wristShoulderDistances.push(distance);
 				}
@@ -288,7 +287,7 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// Find min elbow angle to determine push-up depth
 			const minElbowAngle = Math.min(...elbowAngles);
-			
+
 			// Determine eccentric/concentric phases
 			let lowestPointIndex = elbowAngles.indexOf(minElbowAngle);
 			if (lowestPointIndex <= 0) lowestPointIndex = Math.floor(elbowAngles.length / 2);
@@ -304,11 +303,13 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 			let tempoScore = 0;
 
 			// 1. Depth feedback
-			if (minElbowAngle > 90) {
+			if (minElbowAngle > 110) {
 				negativeFeedback.push('Aim for deeper push-ups - try to reach a 90° angle at your elbows');
 				depthScore = Math.max(0, 25 - Math.min(25, (minElbowAngle - 90) / 2));
 			} else if (minElbowAngle < 70) {
-				negativeFeedback.push('Your push-ups may be too deep - aim for around 90° at your elbows to protect your shoulders');
+				negativeFeedback.push(
+					'Your push-ups may be too deep - aim for around 90° at your elbows to protect your shoulders'
+				);
 				depthScore = Math.max(0, 25 - Math.min(25, (70 - minElbowAngle) * 2));
 			} else {
 				positiveFeedback.push('Your push-up depth is excellent');
@@ -317,8 +318,11 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// 2. Body alignment feedback
 			const maxAlignmentDeviation = Math.max(...bodyAlignment);
+			console.log(maxAlignmentDeviation);
 			if (maxAlignmentDeviation > 15) {
-				negativeFeedback.push('Keep your body in a straight line - avoid sagging or raising your hips');
+				negativeFeedback.push(
+					'Keep your body in a straight line - avoid sagging or raising your hips'
+				);
 				alignmentScore = Math.max(0, 25 * (1 - (maxAlignmentDeviation - 15) / 25));
 			} else {
 				positiveFeedback.push('Good body alignment throughout the push-up');
@@ -326,15 +330,20 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 			}
 
 			// 3. Hand position feedback
-			const avgWristShoulderDistance = wristShoulderDistances.reduce((sum, val) => sum + val, 0) / wristShoulderDistances.length;
+			const avgWristShoulderDistance =
+				wristShoulderDistances.reduce((sum, val) => sum + val, 0) / wristShoulderDistances.length;
 			// Normalize by some factor - this would need calibration
 			const normalizedDistance = avgWristShoulderDistance * 2; // Arbitrary scaling factor
-			
+
 			if (normalizedDistance < 0.8) {
-				negativeFeedback.push('Your hand position appears too narrow - place hands slightly wider than shoulders');
+				negativeFeedback.push(
+					'Your hand position appears too narrow - place hands slightly wider than shoulders'
+				);
 				armPositionScore = Math.max(0, 25 * (normalizedDistance / 0.8));
 			} else if (normalizedDistance > 1.5) {
-				negativeFeedback.push('Your hand position appears too wide - bring hands closer for better chest engagement');
+				negativeFeedback.push(
+					'Your hand position appears too wide - bring hands closer for better chest engagement'
+				);
 				armPositionScore = Math.max(0, 25 * (1.5 / normalizedDistance));
 			} else {
 				positiveFeedback.push('Good hand positioning relative to shoulders');
