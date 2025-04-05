@@ -1,11 +1,26 @@
 <script lang="ts">
+	import { format } from 'date-fns';
 	import { toast } from 'svelte-sonner';
 	import { useSession } from '$lib/auth-client';
 	import * as Card from '$lib/components/ui/card';
+	import * as Table from '$lib/components/ui/table';
 	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import H1 from '$lib/components/typography/h1.svelte';
 	import { Progress } from '$lib/components/ui/progress';
-	import { User, Ruler, Weight, Activity, AlertCircle, Trophy, Target } from 'lucide-svelte';
+	import {
+		User,
+		Ruler,
+		Weight,
+		Activity,
+		AlertCircle,
+		Trophy,
+		Target,
+		PieChart,
+		Info,
+		Utensils,
+		X
+	} from 'lucide-svelte';
 
 	type OnboardingData = {
 		age: number;
@@ -19,10 +34,23 @@
 		availableEquipment: string[];
 	};
 
+	interface MacrosData {
+		id: string;
+		calories: number;
+		protein: number;
+		fat: number;
+		carbs: number;
+		rawData: string;
+		createdAt?: Date;
+	}
+
 	const session = useSession();
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let data = $state<OnboardingData | null>(null);
+	let macrosData = $state<MacrosData[]>([]);
+	let selectedMacros = $state<MacrosData | null>(null);
+	let showMacrosDialog = $state(false);
 
 	const capitalize = (str: string) => {
 		if (!str) return '';
@@ -45,9 +73,25 @@
 		}
 	}
 
+	async function fetchMacrosData() {
+		try {
+			const response = await fetch('/api/macros');
+			if (!response.ok) throw new Error('Failed to fetch macros data');
+			macrosData = await response.json();
+		} catch (err) {
+			toast.error('Error loading macros data');
+		}
+	}
+
+	function openMacrosDetails(macros: MacrosData) {
+		selectedMacros = macros;
+		showMacrosDialog = true;
+	}
+
 	$effect(() => {
 		if ($session.data?.user) {
 			fetchDashboardData();
+			fetchMacrosData();
 		}
 	});
 
@@ -83,9 +127,7 @@
 			</Card.Content>
 		</Card.Root>
 	{:else if data}
-		<!-- Stats Grid -->
 		<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-			<!-- Stat Cards -->
 			<Card.Root>
 				<Card.Content class="flex flex-row items-center justify-between p-6">
 					<div class="space-y-1">
@@ -147,7 +189,6 @@
 			</Card.Root>
 		</div>
 
-		<!-- Info Cards -->
 		<div class="grid gap-6 md:grid-cols-2">
 			<Card.Root>
 				<Card.Header>
@@ -229,14 +270,97 @@
 				</Card.Content>
 			</Card.Root>
 		</div>
-	{:else}
+
 		<Card.Root>
-			<Card.Content class="flex flex-col items-center justify-center gap-4 p-6">
-				<p class="text-center text-muted-foreground">
-					Complete your fitness profile to see your dashboard
-				</p>
-				<Button href="/onboarding">Complete Profile</Button>
+			<Card.Header>
+				<Card.Title class="flex items-center gap-2">
+					<Utensils class="h-5 w-5 text-primary" />
+					Nutrition Tracking
+				</Card.Title>
+				<Card.Description>Recent meals and nutritional information</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				{#if macrosData.length === 0}
+					<div
+						class="flex items-center gap-2 rounded-lg bg-destructive/10 p-4 text-sm text-destructive"
+					>
+						<AlertCircle class="h-5 w-5" />
+						<span>No macros data available</span>
+					</div>
+				{:else}
+					<div class="rounded-md border bg-background p-4 shadow-sm">
+						<Table.Root>
+							<Table.Header>
+								<Table.Row>
+									<Table.Head class="w-12 text-center">Sr. No</Table.Head>
+									<Table.Head>Date</Table.Head>
+									<Table.Head class="text-right">Calories</Table.Head>
+									<Table.Head class="text-right">Protein</Table.Head>
+									<Table.Head class="w-16 text-center">Details</Table.Head>
+								</Table.Row>
+							</Table.Header>
+							<Table.Body>
+								{#each macrosData as macros, i}
+									<Table.Row class="transition-colors hover:bg-muted/50">
+										<Table.Cell class="text-center">{i + 1}</Table.Cell>
+										<Table.Cell>{format(new Date(), 'MMM dd, yyyy')}</Table.Cell>
+										<Table.Cell class="text-right">{macros.calories} kcal</Table.Cell>
+										<Table.Cell class="text-right">{macros.protein}g</Table.Cell>
+										<Table.Cell class="text-center">
+											<Button
+												variant="ghost"
+												size="icon"
+												onclick={() => openMacrosDetails(macros)}
+												title="View Details"
+											>
+												<Info class="h-4 w-4" />
+											</Button>
+										</Table.Cell>
+									</Table.Row>
+								{/each}
+							</Table.Body>
+						</Table.Root>
+					</div>
+				{/if}
 			</Card.Content>
 		</Card.Root>
+
+		<Dialog.Root bind:open={showMacrosDialog}>
+			<Dialog.Content class="rounded-lg border bg-background p-6 shadow-lg sm:max-w-[600px]">
+				<Dialog.Header class="mb-4 flex items-center justify-between border-b pb-2">
+					<Dialog.Title class="flex items-center gap-2 text-lg font-semibold">
+						<PieChart class="h-5 w-5 text-primary" />
+						Macro Details
+					</Dialog.Title>
+				</Dialog.Header>
+				{#if selectedMacros}
+					<div class="space-y-4">
+						<div class="flex items-center gap-2">
+							<span class="font-medium">Date:</span>
+							<span>{format(new Date(), 'MMMM dd, yyyy')}</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="font-medium">Calories:</span>
+							<span>{selectedMacros.calories} kcal</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="font-medium">Protein:</span>
+							<span>{selectedMacros.protein} g</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="font-medium">Carbs:</span>
+							<span>{selectedMacros.carbs} g</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="font-medium">Fat:</span>
+							<span>{selectedMacros.fat} g</span>
+						</div>
+					</div>
+				{/if}
+				<Dialog.Footer class="mt-4 flex justify-end">
+					<Button variant="outline" onclick={() => (showMacrosDialog = false)}>Close</Button>
+				</Dialog.Footer>
+			</Dialog.Content>
+		</Dialog.Root>
 	{/if}
 </div>
