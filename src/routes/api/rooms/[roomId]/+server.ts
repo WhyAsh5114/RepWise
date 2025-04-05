@@ -17,8 +17,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
 
 		const room = await prisma.room.findUnique({
 			where: {
-				id: roomId,
-				status: 'ACTIVE'
+				id: roomId
 			},
 			include: {
 				creator: {
