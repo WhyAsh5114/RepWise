@@ -4,30 +4,12 @@
 	import { fade, fly } from 'svelte/transition';
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
-	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Alert from '$lib/components/ui/alert';
-	import * as Card from '$lib/components/ui/card';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { Button } from '$lib/components/ui/button';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
-	import { Separator } from '$lib/components/ui/separator';
-	import {
-		Send,
-		X,
-		Minimize2,
-		Loader2,
-		AlertTriangle,
-		Bot,
-		User,
-		Trophy,
-		Target,
-		Weight,
-		Ruler,
-		Calendar,
-		Dumbbell,
-		CheckCircle2,
-		XCircle
-	} from 'lucide-svelte';
+	import { Send, X, Minimize2, Loader2, AlertTriangle, Bot } from 'lucide-svelte';
+	import WorkoutPlanCard from '$lib/components/WorkoutPlanCard.svelte';
 
 	type Message = {
 		id: string;
@@ -120,7 +102,6 @@
 			.join(' ');
 	}
 
-	// Function to handle the message that contains profile info
 	function renderMessage(message: Message) {
 		if (message.content.includes('Please confirm your fitness profile:') && userOnboardingData) {
 			return `
@@ -129,6 +110,23 @@
 					${ProfileCard(formatOnboardingDataToProfile(userOnboardingData))}
 				</div>
 			`;
+		} else if (message.content.includes("Here's your personalized workout plan")) {
+			try {
+				const startIndex = message.content.indexOf('{');
+				const endIndex = message.content.lastIndexOf('}') + 1;
+				const workoutPlanJson = message.content.slice(startIndex, endIndex);
+				const workoutPlan = JSON.parse(workoutPlanJson);
+
+				return `
+					<div class="space-y-4">
+						<p>Here's your personalized workout plan based on your profile:</p>
+						<WorkoutPlanCard workoutPlan={workoutPlan.workoutPlan} />
+					</div>
+				`;
+			} catch (error) {
+				console.error('Error parsing workout plan:', error);
+				return message.content;
+			}
 		}
 		return `<p>${message.content}</p>`;
 	}
@@ -231,7 +229,7 @@
 								<div class="flex flex-wrap gap-1.5">
 									${profile.availableEquipment
 										.map(
-											equipment => `
+											(equipment) => `
 											<span class="inline-flex items-center rounded-full bg-secondary/50 px-2.5 py-0.5 text-xs font-medium">
 												${capitalize(equipment)}
 											</span>`
@@ -299,6 +297,59 @@
 		sendMessage();
 	}
 
+	async function getBotResponse(message: string): Promise<string> {
+		const lowerMessage = message.toLowerCase();
+
+		// Handle workout plan request
+		if (lowerMessage.includes('workout') || lowerMessage.includes('exercise plan')) {
+			try {
+				const userData = {
+					fitness_level: userOnboardingData?.fitnessLevel || 'intermediate',
+					age: userOnboardingData?.age || 35,
+					height: userOnboardingData?.height || 175,
+					weight: userOnboardingData?.weight || 75,
+					days_per_week: userOnboardingData?.daysPerWeek || 4,
+					injuries: userOnboardingData?.injuries ? [userOnboardingData.injuries] : [],
+					goals: [userOnboardingData?.fitnessGoal || 'overall fitness']
+				};
+
+				const response = await fetch('/api/workout-plan', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(userData)
+				});
+
+				if (!response.ok) {
+					throw new Error('Failed to generate workout plan');
+				}
+
+				const data = await response.json();
+				const workoutPlan = data.workoutPlan;
+
+				// Format the workout plan response
+				return `Here's your personalized workout plan based on your profile:
+				
+${JSON.stringify(workoutPlan, null, 2)}
+
+Would you like me to explain any part of this workout plan in more detail?`;
+			} catch (error) {
+				console.error('Error generating workout plan:', error);
+				return 'I apologize, but I encountered an error while creating your workout plan. Would you like to try again?';
+			}
+		}
+
+		// Handle existing responses
+		if (lowerMessage.includes('yes') && lowerMessage.includes('correct')) {
+			return "Great! I'll use this information to provide personalized fitness advice. Would you like me to create a workout plan for you?";
+		}
+
+		// ...rest of existing conditions...
+
+		return `I understand you're asking about "${message}". Would you like me to create a personalized workout plan based on your fitness profile?`;
+	}
+
 	async function sendMessage() {
 		if (!inputMessage.trim() || !hasCompletedOnboarding) return;
 
@@ -319,54 +370,34 @@
 
 		isLoading = true;
 
-		setTimeout(
-			() => {
-				const botMessage: Message = {
+		try {
+			const botResponse = await getBotResponse(sentMessage);
+
+			const botMessage: Message = {
+				id: (Date.now() + 1).toString(),
+				content: botResponse,
+				sender: 'bot',
+				timestamp: new Date()
+			};
+
+			messages = [...messages, botMessage];
+		} catch (error) {
+			console.error('Error getting bot response:', error);
+			messages = [
+				...messages,
+				{
 					id: (Date.now() + 1).toString(),
-					content: getBotResponse(sentMessage),
+					content: 'I apologize, but I encountered an error. Please try again.',
 					sender: 'bot',
 					timestamp: new Date()
-				};
-
-				messages = [...messages, botMessage];
-				isLoading = false;
-
-				setTimeout(() => {
-					scrollToBottom();
-				}, 100);
-			},
-			1000 + Math.random() * 1000
-		);
-	}
-
-	function getBotResponse(message: string): string {
-		const lowerMessage = message.toLowerCase();
-
-		if (lowerMessage.includes('yes') && lowerMessage.includes('correct')) {
-			return "Great! I'll use this information to provide personalized fitness advice. What would you like help with?";
-		} else if (lowerMessage.includes('no') && lowerMessage.includes('not correct')) {
-			return 'I understand some information might not be accurate. You can update your profile in the settings. In the meantime, how can I assist you?';
-		} else if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-			return 'Hello there! How can I assist you today?';
-		} else if (lowerMessage.includes('help')) {
-			return 'I can help with workout plans, nutrition advice, and tracking your fitness progress. What do you need assistance with?';
-		} else if (lowerMessage.includes('feature') || lowerMessage.includes('product')) {
-			return 'Our app offers personalized workout plans, nutrition tracking, and fitness analytics. Which feature would you like to know more about?';
-		} else if (
-			lowerMessage.includes('error') ||
-			lowerMessage.includes('problem') ||
-			lowerMessage.includes('not working')
-		) {
-			return "I'm sorry to hear you're experiencing issues. Could you provide more details about what's happening so I can help troubleshoot?";
-		} else if (lowerMessage.includes('thanks') || lowerMessage.includes('thank you')) {
-			return "You're welcome! Is there anything else I can help with?";
+				}
+			];
+		} finally {
+			isLoading = false;
+			setTimeout(() => {
+				scrollToBottom();
+			}, 100);
 		}
-
-		return (
-			'I understand you\'re asking about "' +
-			message +
-			'". Based on your fitness profile, I can provide personalized advice on this topic. How can I help specifically?'
-		);
 	}
 
 	function handleKeyPress(event: KeyboardEvent) {
