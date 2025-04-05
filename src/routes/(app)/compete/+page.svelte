@@ -23,8 +23,8 @@
 		successMessage = '';
 
 		try {
-			// Generate a unique room ID - that's all we need
-			const newRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
+			// Generate a simple alphanumeric room ID (no hyphens)
+			const newRoomId = Math.random().toString(36).substring(2, 10);
 			
 			successMessage = `Room created! Room code: ${newRoomId}`;
 			setTimeout(() => {

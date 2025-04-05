@@ -54,166 +54,274 @@
 			// Dynamically import Agora RTC SDK only on the client side
 			const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
 
-			// Create Agora client
-			agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+			// Create Agora client - set to host to enable publishing by default
+			agoraClient = AgoraRTC.createClient({
+				mode: 'rtc',
+				codec: 'vp8'
+			});
 
-			// Event listener for remote users joining
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			agoraClient.on('user-published', async (user: any, mediaType: 'audio' | 'video') => {
-				await agoraClient?.subscribe(user, mediaType);
+			// Generate a simple numeric UID
+			const uid = Math.floor(Math.random() * 999999) + 1;
+			console.log(`[AGORA] Generated UID: ${uid} for room ${roomId}`);
 
-				if (mediaType === 'video') {
-					remoteUsers[user.uid.toString()] = user;
-					remoteUsers = { ...remoteUsers }; // Trigger reactivity
+			// Configure event listeners BEFORE joining
+			console.log('[AGORA] Setting up event listeners');
 
-					// Try to find user info if available
-					const userName = user.uid.toString();
+			// Connection state changes
+			agoraClient.on('connection-state-change', (curState, prevState) => {
+				console.log(`[AGORA] Connection state: ${prevState} → ${curState}`);
+			});
 
-					// Add to participants list if not there
-					if (!participants.some((p) => p.userId === user.uid.toString())) {
-						participants = [
-							...participants,
-							{
-								userId: user.uid.toString(),
-								name: userName
-							}
-						];
+			// User joins with published stream
+			agoraClient.on('user-published', async (user, mediaType) => {
+				console.log(`[AGORA] Remote user ${user.uid} published ${mediaType} stream`);
 
-						// Initialize score
-						if (!scores[user.uid.toString()]) {
+				try {
+					await agoraClient?.subscribe(user, mediaType);
+					console.log(`[AGORA] Subscribed to ${user.uid}'s ${mediaType}`);
+
+					if (mediaType === 'video') {
+						// Add to remote users
+						remoteUsers[user.uid.toString()] = user;
+						remoteUsers = { ...remoteUsers }; // Trigger reactivity
+						console.log(`[AGORA] Added to remoteUsers, total: ${Object.keys(remoteUsers).length}`);
+
+						// Add to participants list with a generated name
+						const userName = `User-${user.uid.toString().slice(0, 5)}`;
+
+						if (!participants.some((p) => p.userId === user.uid.toString())) {
+							participants = [
+								...participants,
+								{
+									userId: user.uid.toString(),
+									name: userName
+								}
+							];
+							console.log(`[AGORA] Added to participants: ${userName}`);
+
+							// Initialize score
 							scores[user.uid.toString()] = 0;
+							updateRankings();
 						}
 
-						updateRankings();
+						// Play the video on next tick with retry
+						setTimeout(() => {
+							try {
+								const playerElement = document.getElementById(`user-${user.uid}`);
+								if (playerElement && user.videoTrack) {
+									user.videoTrack.play(`user-${user.uid}`);
+									console.log(`[AGORA] Playing remote video for ${user.uid}`);
+								} else {
+									console.warn(`[AGORA] Player element or track not ready for ${user.uid}`);
+								}
+							} catch (err) {
+								console.error(`[AGORA] Error playing remote video:`, err);
+							}
+						}, 500);
 					}
-
-					setTimeout(() => {
-						user.videoTrack?.play(`user-${user.uid}`);
-					}, 100);
+				} catch (err) {
+					console.error(`[AGORA] Failed to subscribe to ${user.uid}:`, err);
 				}
 			});
 
-			// Event listener for remote users leaving
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			agoraClient.on('user-unpublished', (user: any) => {
-				delete remoteUsers[user.uid.toString()];
-				remoteUsers = { ...remoteUsers }; // Trigger reactivity
+			// User unpublishes stream
+			agoraClient.on('user-unpublished', (user, mediaType) => {
+				console.log(`[AGORA] User ${user.uid} unpublished ${mediaType}`);
+
+				if (mediaType === 'video') {
+					// We keep the user in the list but mark their track as unpublished
+					console.log(`[AGORA] User ${user.uid} video track unpublished`);
+				}
+			});
+
+			// User leaves entirely
+			agoraClient.on('user-left', (user) => {
+				console.log(`[AGORA] User ${user.uid} left the channel`);
+
+				// Remove from remoteUsers
+				if (remoteUsers[user.uid.toString()]) {
+					delete remoteUsers[user.uid.toString()];
+					remoteUsers = { ...remoteUsers }; // Trigger reactivity
+					console.log(`[AGORA] Removed user ${user.uid} from remoteUsers`);
+				}
 
 				// Remove from participants
 				participants = participants.filter((p) => p.userId !== user.uid.toString());
+				console.log(
+					`[AGORA] Removed user ${user.uid} from participants, remaining: ${participants.length}`
+				);
+
 				updateRankings();
 			});
 
-			// Join the Agora channel (using roomId as channel name)
-			const uid = $session.data?.user?.id || `user-${Math.floor(Math.random() * 10000)}`;
-			await agoraClient.join(appId, roomId, null, uid);
+			// Use simple channel name for better reliability
+			const channelName = roomId;
+			console.log(`[AGORA] Attempting to join channel: ${channelName} with UID: ${uid}`);
 
-			// Use sessionStorage to check if a creator exists
-			const storedCreatorId = sessionStorage.getItem(`creator-${roomId}`);
-			if (storedCreatorId) {
-				creatorId = storedCreatorId;
-			}
+			// Join the channel
+			await agoraClient.join(appId, channelName, null, uid);
+			console.log(`[AGORA] Successfully joined channel ${channelName}`);
 
-			// Check if there are other users in the room already
-			const remoteUsersInChannel = agoraClient.remoteUsers;
+			// Create and publish camera track immediately (this improves discovery)
+			console.log(`[AGORA] Creating camera track`);
+			localTrack = await AgoraRTC.createCameraVideoTrack();
 
-			// If there are no remote users and no stored creator, you're the first one
-			if (remoteUsersInChannel.length === 0 && !creatorId) {
-				creatorId = uid;
-				// Store the creator ID in session storage
-				sessionStorage.setItem(`creator-${roomId}`, uid);
+			console.log(`[AGORA] Publishing camera track`);
+			await agoraClient.publish([localTrack]);
 
-				// Let others know you're the creator (via metadata in video stream or other means)
-				// This will depend on your specific implementation
-				console.log('I am the creator of this room:', uid);
-			}
+			// Play local video
+			setTimeout(() => {
+				if (localTrack) {
+					try {
+						const localPlayerElement = document.getElementById('local-player');
+						if (localPlayerElement) {
+							localTrack.play('local-player');
+							console.log(`[AGORA] Playing local video`);
+						} else {
+							console.warn(`[AGORA] Local player element not found`);
+						}
+					} catch (err) {
+						console.error(`[AGORA] Error playing local video:`, err);
+					}
+				}
+			}, 500);
 
-			// Add current user to participants
-			if ($session.data?.user) {
-				const currentUser = {
-					userId: uid,
-					name: $session.data.user.name || 'You',
-					image: $session.data.user.image ?? undefined
-				};
+			// Get remote users after a short delay
+			setTimeout(() => {
+				// Check if we have remote users
+				const remoteUsersList = agoraClient?.remoteUsers || [];
+				console.log(`[AGORA] After joining, found ${remoteUsersList.length} remote users`);
 
-				if (!participants.some((p) => p.userId === currentUser.userId)) {
-					participants = [...participants, currentUser];
+				// Set each remote user's stream as published to ensure they're detected
+				remoteUsersList.forEach((user) => {
+					console.log(`[AGORA] Remote user found: ${user.uid}`);
+					if (user.videoTrack) {
+						console.log(`[AGORA] Remote user ${user.uid} has video track, playing...`);
+						try {
+							remoteUsers[user.uid.toString()] = user;
+
+							// Add to participants if not there
+							if (!participants.some((p) => p.userId === user.uid.toString())) {
+								participants = [
+									...participants,
+									{
+										userId: user.uid.toString(),
+										name: `User-${user.uid.toString().slice(0, 5)}`
+									}
+								];
+								scores[user.uid.toString()] = 0;
+							}
+
+							// Try to play their video
+							setTimeout(() => {
+								try {
+									user.videoTrack!.play(`user-${user.uid}`);
+								} catch (err) {
+									console.error(`[AGORA] Error playing existing remote video:`, err);
+								}
+							}, 500);
+						} catch (err) {
+							console.error(`[AGORA] Error handling existing remote user:`, err);
+						}
+					}
+				});
+
+				// Determine host (first user or lowest UID)
+				if (remoteUsersList.length === 0) {
+					creatorId = uid.toString();
+					console.log(`[AGORA] No other users found, setting self as host with UID ${uid}`);
+				} else {
+					// If there are remote users, use the lowest UID as creator
+					const allUids = [uid.toString(), ...remoteUsersList.map((u) => u.uid.toString())];
+					const lowestUid = allUids.sort()[0];
+					creatorId = lowestUid;
+					console.log(`[AGORA] Setting ${lowestUid} as host`);
 				}
 
-				// Initialize score
-				if (!scores[currentUser.userId]) {
-					scores[currentUser.userId] = 0;
+				// Add current user to participants
+				const userName = $session.data?.user?.name || `You (${uid})`;
+				participants = [
+					...participants
+						.filter((p) => p.userId !== uid.toString())
+						.map((p) => ({ ...p, image: p.image ?? undefined })),
+					{
+						userId: uid.toString(),
+						name: userName,
+						image: $session.data?.user?.image ?? undefined
+					}
+				];
+
+				// Make sure current user has a score
+				scores[uid.toString()] = scores[uid.toString()] || 0;
+
+				isJoined = true;
+				loading = false;
+
+				// Force update rankings
+				updateRankings();
+
+				// Force a UI refresh
+				remoteUsers = { ...remoteUsers };
+				participants = [...participants];
+
+				// If competition is already active, auto-join
+				if (creatorId !== uid.toString() && remoteUsersList.length > 0) {
+					// Auto-join competition if it looks like it's in progress
+					const hasActiveVideo = remoteUsersList.some((u) => u.videoTrack);
+					if (hasActiveVideo) {
+						console.log(`[AGORA] Auto-joining active competition`);
+						isCompetitionActive = true;
+					}
 				}
-			}
-
-			isJoined = true;
-			loading = false;
-
-			updateRankings();
+			}, 2000);
 		} catch (err) {
-			console.error('Error connecting to Agora:', err);
-			if (err instanceof Error)
-				error = err.message || 'An error occurred while connecting to the room';
+			console.error('[AGORA] Error connecting:', err);
+			error =
+				err instanceof Error
+					? err.message
+					: 'Failed to connect to the competition room. Please check your camera and try again.';
 			loading = false;
 		}
 	}
 
-	// Start the video stream when competition starts
+	// Start the video stream when competition starts -
+	// Now just publishes a higher quality stream
 	async function startVideoStream() {
 		if (!browser || !agoraClient) return;
 
 		try {
-			// Dynamically import Agora RTC SDK only on the client side
+			console.log('[AGORA] Starting high quality video for competition');
+
+			// If we already have a track, close it first
+			if (localTrack) {
+				await agoraClient.unpublish([localTrack]);
+				localTrack.close();
+			}
+
+			// Create a new high quality track
 			const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+			localTrack = await AgoraRTC.createCameraVideoTrack({
+				encoderConfig: 'high' // Higher quality for competition
+			});
 
-			// Create and publish video track (camera only, no microphone)
-			localTrack = await AgoraRTC.createCameraVideoTrack();
 			await agoraClient.publish([localTrack]);
+			console.log('[AGORA] Published high quality video');
 
-			// Play local video stream
 			setTimeout(() => {
 				if (localTrack) {
-					localTrack.play('local-player');
+					try {
+						localTrack.play('local-player');
+						console.log('[AGORA] Playing high quality local video');
+					} catch (err) {
+						console.error('[AGORA] Error playing high quality video:', err);
+					}
 				}
-			}, 100);
+			}, 300);
 
 			toast.success('Joined video stream!');
 		} catch (err) {
-			console.error('Error starting video stream:', err);
-			toast.error('Failed to start video stream');
-		}
-	}
-
-	function updateRankings() {
-		rankings = Object.entries(scores)
-			.map(([userId, score]) => {
-				const participant = participants.find((p) => p.userId === userId);
-				return {
-					userId,
-					score,
-					userName: participant?.name || 'Unknown'
-				};
-			})
-			.sort((a, b) => b.score - a.score);
-	}
-
-	// Simulate scoring - in a real app this would be based on exercise detection
-	function simulateScoring() {
-		if (!browser || !isCompetitionActive) return;
-
-		// Randomly increase scores
-		let scoresChanged = false;
-
-		participants.forEach((participant) => {
-			if (Math.random() > 0.5) {
-				const newScore = (scores[participant.userId] || 0) + Math.floor(Math.random() * 5) + 1;
-				scores[participant.userId] = newScore;
-				scoresChanged = true;
-			}
-		});
-
-		if (scoresChanged) {
-			updateRankings();
+			console.error('[AGORA] Error enhancing video stream:', err);
+			toast.error('Failed to enhance video stream. You can still participate.');
 		}
 	}
 
@@ -251,16 +359,53 @@
 		if (!browser) return;
 
 		try {
+			console.log('[AGORA] Starting competition');
 			isCompetitionActive = true;
+
+			// Notify other users that competition is starting (just console log for now)
+			console.log('[AGORA] Notifying others that competition is starting');
 
 			// Start video stream now
 			await startVideoStream();
 
 			toast.success('Competition started!');
 		} catch (err) {
-			console.error('Error starting competition:', err);
+			console.error('[AGORA] Error starting competition:', err);
 			if (err instanceof Error)
 				error = err.message || 'An error occurred while starting the competition';
+		}
+	}
+
+	function updateRankings() {
+		rankings = Object.entries(scores)
+			.map(([userId, score]) => {
+				const participant = participants.find((p) => p.userId === userId);
+				return {
+					userId,
+					score,
+					userName: participant?.name || 'Unknown'
+				};
+			})
+			.sort((a, b) => b.score - a.score);
+	}
+
+	// Simulate scoring - in a real app this would be based on exercise detection
+	function simulateScoring() {
+		if (!browser || !isCompetitionActive) return;
+
+		// Randomly increase scores
+		let scoresChanged = false;
+
+		participants.forEach((participant) => {
+			if (Math.random() > 0.5) {
+				const newScore = (scores[participant.userId] || 0) + Math.floor(Math.random() * 5) + 1;
+				scores[participant.userId] = newScore;
+				scoresChanged = true;
+			}
+		});
+
+		if (scoresChanged) {
+			updateRankings();
 		}
 	}
 
