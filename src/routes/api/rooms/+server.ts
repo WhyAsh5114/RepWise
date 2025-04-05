@@ -49,7 +49,6 @@ export const GET: RequestHandler = async ({ request }) => {
 				participants: {
 					some: {
 						userId: session.user.id,
-						isActive: true
 					}
 				},
 			},

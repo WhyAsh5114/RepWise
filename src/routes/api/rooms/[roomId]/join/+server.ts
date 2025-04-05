@@ -37,21 +37,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		});
 
 		if (existingParticipant) {
-			if (existingParticipant.isActive) {
-				return json({ message: 'You are already in this room' });
-			} else {
-				// Reactivate if previously inactive
-				await prisma.roomParticipant.update({
-					where: {
-						id: existingParticipant.id
-					},
-					data: {
-						isActive: true
-					}
-				});
-
-				return json({ message: 'Rejoined room successfully' });
-			}
+			return json({ message: 'You are already in this room' });
 		}
 
 		// Create new participant
