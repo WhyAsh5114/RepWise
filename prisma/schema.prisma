@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id            String            @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
   email         String
   emailVerified Boolean
@@ -20,8 +20,6 @@ model User {
   accounts      Account[]
   Macros        Macros[]
   Onboarding    Onboarding[]
-  createdRooms  Room[]            @relation("RoomCreator")
-  roomsJoined   RoomParticipant[]
   HeartRate     HeartRate[]
 
   @@unique([email])
@@ -97,37 +95,6 @@ model Onboarding {
   id                 String   @id @default(cuid())
   userId             String
   user               User     @relation(fields: [userId], references: [id])
-}
-
-model Room {
-  id           String            @id @default(cuid())
-  name         String?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  creatorId    String
-  creator      User              @relation("RoomCreator", fields: [creatorId], references: [id])
-  participants RoomParticipant[]
-  status       RoomStatus        @default(STARTING)
-
-  @@map("room")
-}
-
-enum RoomStatus {
-  STARTING
-  ACTIVE
-  CLOSED
-}
-
-model RoomParticipant {
-  id       String   @id @default(cuid())
-  roomId   String
-  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId   String
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  joinedAt DateTime @default(now())
-
-  @@unique([roomId, userId])
-  @@map("room_participant")
 }
 
 model HeartRate {

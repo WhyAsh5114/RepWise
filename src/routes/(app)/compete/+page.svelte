@@ -1,45 +1,34 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import H1 from '$lib/components/typography/h1.svelte';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { Loader2 } from 'lucide-svelte';
 
+	// Simple room code for joining
 	let roomCode = $state('');
-	let roomName = $state('');
 	let errorMessage = $state('');
 	let successMessage = $state('');
 	let isCreatingRoom = $state(false);
 	let isJoiningRoom = $state(false);
 
 	async function createRoom() {
-		if (isCreatingRoom) return;
-		
+		if (isCreatingRoom || !browser) return;
+
 		isCreatingRoom = true;
 		errorMessage = '';
 		successMessage = '';
 
 		try {
-			const response = await fetch('/api/rooms', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ name: roomName })
-			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.message || 'Failed to create room');
-			}
-
-			successMessage = `Room created! Room code: ${data.id}`;
+			// Generate a unique room ID - that's all we need
+			const newRoomId = `room-${Math.random().toString(36).substring(2, 9)}`;
+			
+			successMessage = `Room created! Room code: ${newRoomId}`;
 			setTimeout(() => {
-				goto(`/compete/${data.id}`);
+				goto(`/compete/${newRoomId}`);
 			}, 1500);
 		} catch (error) {
 			console.error('Error creating room:', error);
@@ -50,36 +39,24 @@
 		}
 	}
 
-	async function joinRoom() {
-		if (isJoiningRoom) return;
-		
+	async function joinRoom(id = roomCode) {
+		if (isJoiningRoom || !browser) return;
+
 		isJoiningRoom = true;
 		errorMessage = '';
 		successMessage = '';
 
-		if (!roomCode) {
+		if (!id) {
 			errorMessage = 'Room code is required';
 			isJoiningRoom = false;
 			return;
 		}
 
 		try {
-			const response = await fetch(`/api/rooms/${roomCode}/join`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.message || 'Failed to join room');
-			}
-
+			 // Simply navigate to the room - we'll connect to Agora there
 			successMessage = 'Joining room...';
 			setTimeout(() => {
-				goto(`/compete/${roomCode}`);
+				goto(`/compete/${id}`);
 			}, 1000);
 		} catch (error) {
 			console.error('Error joining room:', error);
@@ -92,44 +69,42 @@
 	}
 </script>
 
-<div class="container mx-auto max-w-md space-y-6 p-4">
-	<H1 class="text-center">Compete</H1>
+<div class="container space-y-6 p-4">
+	<H1 class="text-left">Compete</H1>
 
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Create a Room</Card.Title>
-		</Card.Header>
-		<Card.Content class="space-y-4">
-			<div class="space-y-2">
-				<Label for="roomName">Room Name (Optional)</Label>
-				<Input type="text" id="roomName" bind:value={roomName} placeholder="Enter a room name" />
-			</div>
-			<Button variant="default" class="w-full" onclick={createRoom} disabled={isCreatingRoom}>
-				{#if isCreatingRoom}
-					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{/if}
-				Create Room
-			</Button>
-		</Card.Content>
-	</Card.Root>
+	<div class="mb-6 flex justify-start">
+		<Button variant="default" onclick={createRoom} disabled={isCreatingRoom} class="px-8">
+			{#if isCreatingRoom}
+				<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+			{/if}
+			Create New Room
+		</Button>
+	</div>
 
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Join a Room</Card.Title>
-		</Card.Header>
-		<Card.Content class="space-y-4">
-			<div class="space-y-2">
-				<Label for="roomCode">Room Code</Label>
-				<Input type="text" id="roomCode" bind:value={roomCode} placeholder="Enter room code" />
-			</div>
-			<Button variant="secondary" class="w-full" onclick={joinRoom} disabled={isJoiningRoom}>
-				{#if isJoiningRoom}
-					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-				{/if}
-				Join Room
-			</Button>
-		</Card.Content>
-	</Card.Root>
+	<div class="mb-8">
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Join with Room Code</Card.Title>
+			</Card.Header>
+			<Card.Content class="space-y-4">
+				<div class="flex gap-4">
+					<div class="flex-grow">
+						<Input type="text" id="roomCode" bind:value={roomCode} placeholder="Enter room code" />
+					</div>
+					<Button
+						variant="secondary"
+						onclick={() => joinRoom()}
+						disabled={isJoiningRoom || !roomCode}
+					>
+						{#if isJoiningRoom}
+							<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+						{/if}
+						Join
+					</Button>
+				</div>
+			</Card.Content>
+		</Card.Root>
+	</div>
 
 	{#if errorMessage}
 		<Alert variant="destructive">
