@@ -1,10 +1,10 @@
+import { GoogleGenAI } from '@google/genai';
 import { GEMINI_API_KEY } from '$env/static/private';
 import { createWorkoutPlanFunctionDeclaration } from '$lib/toolspecs/fitness-planner';
-import { GoogleGenAI } from '@google/genai';
 
 export async function POST({ request }) {
 	const userData = await request.json();
-	
+
 	const config = {
 		tools: [
 			{
@@ -13,15 +13,13 @@ export async function POST({ request }) {
 		]
 	};
 
-	// Configure the client
 	const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
-	// Define a simple user prompt
 	const contents = [
 		{
 			role: 'user',
 			parts: [
-				{ 
+				{
 					text: `Create a workout routine that fits my profile:
 					
 					I'm a ${userData.fitness_level || 'intermediate'} level fitness enthusiast, ${userData.age || 35} years old, 
@@ -36,23 +34,24 @@ export async function POST({ request }) {
 		}
 	];
 
-	// Send request with function declarations
 	const response = await ai.models.generateContent({
-		model: 'gemini-2.0-flash',
+		model: 'gemini-2.5-pro-exp-03-25',
 		contents: contents,
 		config: config
 	});
 
-	// Get the structured workout plan from the function call
 	const workoutPlan = response.functionCalls?.at(0)?.args;
 
-	return new Response(JSON.stringify({ 
-		workoutPlan,
-		fullResponse: response
-	}), {
-		status: 200,
-		headers: {
-			'Content-Type': 'application/json'
+	return new Response(
+		JSON.stringify({
+			workoutPlan,
+			fullResponse: response
+		}),
+		{
+			status: 200,
+			headers: {
+				'Content-Type': 'application/json'
+			}
 		}
-	});
+	);
 }
