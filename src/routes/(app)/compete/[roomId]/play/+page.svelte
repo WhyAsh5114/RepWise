@@ -68,6 +68,9 @@
 		Object.entries(remoteStreams).forEach(([peerId, stream]) => {
 			if (remoteVideoElements[peerId]) {
 				remoteVideoElements[peerId].srcObject = stream;
+				console.log(`Set stream for peer ${peerId}:`, stream.id, stream.getTracks().length);
+			} else {
+				console.warn(`Video element for ${peerId} not found`);
 			}
 		});
 	});
@@ -152,14 +155,28 @@
 				}
 			};
 
-			// Handle incoming tracks
+			// Handle incoming tracks - improved handling
 			pc.ontrack = (event) => {
-				if (!remoteStreams[peerId]) {
-					remoteStreams[peerId] = new MediaStream();
+				console.log(`Received tracks from ${peerId}:`, event.streams.length);
+				if (event.streams && event.streams.length > 0) {
+					// Use the incoming stream directly instead of creating a new one
+					remoteStreams[peerId] = event.streams[0];
+					
+					// Force update the video element if it exists
+					if (remoteVideoElements[peerId]) {
+						remoteVideoElements[peerId].srcObject = event.streams[0];
+					}
+				} else {
+					console.warn(`Received track event without streams from ${peerId}`);
 				}
-				event.streams[0].getTracks().forEach((track) => {
-					remoteStreams[peerId].addTrack(track);
-				});
+			};
+			
+			// Log connection state changes for debugging
+			pc.oniceconnectionstatechange = () => {
+				console.log(`ICE connection state with ${peerId}:`, pc.iceConnectionState);
+				if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+					console.log(`Connection established with ${peerId}`);
+				}
 			};
 
 			return pc;
@@ -209,23 +226,35 @@
 			pc = await createPeerConnection(peerId);
 		}
 
-		await pc.setRemoteDescription(new RTCSessionDescription(message.offer));
-		const answer = await pc.createAnswer();
-		await pc.setLocalDescription(answer);
+		try {
+			await pc.setRemoteDescription(new RTCSessionDescription(message.offer));
+			const answer = await pc.createAnswer();
+			await pc.setLocalDescription(answer);
 
-		sendSignalingMessage({
-			type: 'answer',
-			answer,
-			from: $session.data?.user.id,
-			to: peerId
-		});
+			sendSignalingMessage({
+				type: 'answer',
+				answer,
+				from: $session.data?.user.id,
+				to: peerId
+			});
+		} catch (err) {
+			console.error('Error handling offer:', err);
+			error = 'Failed to establish connection with a participant.';
+		}
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	async function handleAnswer(message: any) {
 		const pc = peerConnections[message.from];
 		if (pc) {
-			await pc.setRemoteDescription(new RTCSessionDescription(message.answer));
+			try {
+				await pc.setRemoteDescription(new RTCSessionDescription(message.answer));
+				console.log(`Successfully set remote description from ${message.from}`);
+			} catch (err) {
+				console.error('Error setting remote description:', err);
+			}
+		} else {
+			console.warn(`No peer connection found for ${message.from} when handling answer`);
 		}
 	}
 
@@ -233,9 +262,11 @@
 	function handleIceCandidate(message: any) {
 		const pc = peerConnections[message.from];
 		if (pc) {
-			pc.addIceCandidate(new RTCIceCandidate(message.candidate)).catch((err) =>
-				console.error('Error adding ICE candidate:', err)
-			);
+			pc.addIceCandidate(new RTCIceCandidate(message.candidate))
+				.then(() => console.log(`Added ICE candidate from ${message.from}`))
+				.catch((err) => console.error('Error adding ICE candidate:', err));
+		} else {
+			console.warn(`No peer connection found for ${message.from} when handling ICE candidate`);
 		}
 	}
 
@@ -392,6 +423,7 @@
 									<video
 										bind:this={remoteVideoElements[participant.user.id]}
 										autoplay
+										playsinline
 										class="h-full w-full object-cover"
 									>
 										<track kind="captions" />
