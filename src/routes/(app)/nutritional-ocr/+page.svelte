@@ -28,7 +28,7 @@
 	let stream: MediaStream | null = null;
 
 	let result = '';
-	let error = '';
+	let error = $state('');
 	let loading = $state(false);
 	let sheetOpen = $state(false);
 	let cameraActive = $state(false);
@@ -165,7 +165,24 @@
 				parsedNutrition.fat = extractValue('Total Fat', result);
 				parsedNutrition.carbs = extractValue('Total Carbohydrate', result);
 				parsedNutrition.protein = extractValue('Protein', result);
+
 				sheetOpen = true;
+
+				let macros_data = {
+					calories: parsedNutrition.calories,
+					fat: parsedNutrition.fat,
+					carbs: parsedNutrition.carbs,
+					protein: parsedNutrition.protein,
+					rawData: 'macros_data'
+				};
+
+				const response = await fetch('/api/macros', {
+					method: 'POST',
+					body: JSON.stringify({ macros_data })
+				});
+
+				const apiData = await response.json();
+				console.log(apiData);
 			} catch (err) {
 				if (err instanceof Error) error = err.message;
 			} finally {
@@ -220,12 +237,6 @@
 					Capture & Process
 				{/if}
 			</Button>
-
-			{#if error && cameraActive}
-				<Alert variant="destructive">
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			{/if}
 		</div>
 	</CardContent>
 </Card>
