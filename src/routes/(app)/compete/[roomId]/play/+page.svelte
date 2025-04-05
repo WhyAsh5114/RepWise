@@ -25,6 +25,14 @@
 	const updateInterval = 2000; // Update scores every 2 seconds
 	let scoreUpdateTimer: number | undefined;
 
+	// Track connection states for visual feedback
+	let connectionStates = $state<Record<string, string>>({});
+	let reconnectionAttempts = $state<Record<string, number>>({});
+	const MAX_RECONNECTION_ATTEMPTS = 3;
+
+	// Add debug information for development
+	let streamInfo = $state<Record<string, { videoTracks: number; audioTracks: number }>>({});
+
 	// Auto-generate random scores for demo purposes
 	// In a real app, this would be based on exercise detection and form evaluation
 	function updateScores() {
@@ -67,8 +75,29 @@
 	$effect(() => {
 		Object.entries(remoteStreams).forEach(([peerId, stream]) => {
 			if (remoteVideoElements[peerId]) {
-				remoteVideoElements[peerId].srcObject = stream;
+				// Debug stream information
+				const videoTracks = stream.getVideoTracks().length;
+				const audioTracks = stream.getAudioTracks().length;
+				streamInfo[peerId] = { videoTracks, audioTracks };
+
+				// Ensure video tracks are enabled
+				stream.getVideoTracks().forEach((track) => {
+					if (!track.enabled) track.enabled = true;
+				});
+
+				// Set stream and ensure video plays
+				const videoEl = remoteVideoElements[peerId];
+				videoEl.srcObject = stream;
 				console.log(`Set stream for peer ${peerId}:`, stream.id, stream.getTracks().length);
+
+				// Ensure playback starts
+				videoEl.play().catch((err) => {
+					console.warn(`Error playing video for ${peerId}:`, err);
+					// Try again with user interaction if autoplay fails
+					if (err.name === 'NotAllowedError') {
+						console.log('Autoplay prevented. Will attempt to play on next user interaction');
+					}
+				});
 			} else {
 				console.warn(`Video element for ${peerId} not found`);
 			}
@@ -137,6 +166,8 @@
 		try {
 			const pc = new RTCPeerConnection(configuration);
 			peerConnections[peerId] = pc;
+			connectionStates[peerId] = 'new';
+			reconnectionAttempts[peerId] = 0;
 
 			// Add local stream tracks to the peer connection
 			localStream?.getTracks().forEach((track) => {
@@ -159,23 +190,60 @@
 			pc.ontrack = (event) => {
 				console.log(`Received tracks from ${peerId}:`, event.streams.length);
 				if (event.streams && event.streams.length > 0) {
-					// Use the incoming stream directly instead of creating a new one
+					// Use the incoming stream directly
 					remoteStreams[peerId] = event.streams[0];
-					
+
+					// Log track information for debugging
+					const stream = event.streams[0];
+					const videoTracks = stream.getVideoTracks().length;
+					const audioTracks = stream.getAudioTracks().length;
+					console.log(`Stream ${stream.id} has ${videoTracks} video tracks and ${audioTracks} audio tracks`);
+
+					// Ensure video tracks are enabled
+					stream.getVideoTracks().forEach((track) => {
+						console.log(`Video track ${track.id} enabled: ${track.enabled}`);
+						track.enabled = true;
+					});
+
 					// Force update the video element if it exists
 					if (remoteVideoElements[peerId]) {
-						remoteVideoElements[peerId].srcObject = event.streams[0];
+						const videoEl = remoteVideoElements[peerId];
+						videoEl.srcObject = event.streams[0];
+						videoEl.play().catch((err) => console.warn('Error auto-playing:', err));
 					}
 				} else {
 					console.warn(`Received track event without streams from ${peerId}`);
 				}
 			};
-			
+
 			// Log connection state changes for debugging
 			pc.oniceconnectionstatechange = () => {
 				console.log(`ICE connection state with ${peerId}:`, pc.iceConnectionState);
+				connectionStates[peerId] = pc.iceConnectionState;
+
 				if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
 					console.log(`Connection established with ${peerId}`);
+					reconnectionAttempts[peerId] = 0;
+				} else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+					console.warn(`Connection with ${peerId} ${pc.iceConnectionState}`);
+
+					// Attempt reconnection if not exceeding max attempts
+					if (reconnectionAttempts[peerId] < MAX_RECONNECTION_ATTEMPTS) {
+						setTimeout(() => {
+							if (
+								peerConnections[peerId]?.iceConnectionState === 'disconnected' ||
+								peerConnections[peerId]?.iceConnectionState === 'failed'
+							) {
+								console.log(
+									`Attempting reconnection with ${peerId}, attempt ${reconnectionAttempts[peerId] + 1}`
+								);
+								reconnectionAttempts[peerId]++;
+								// Recreate connection
+								pc.close();
+								createPeerConnection(peerId).then(() => initiateCall(peerId));
+							}
+						}, 2000);
+					}
 				}
 			};
 
@@ -415,7 +483,7 @@
 								</div>
 							</div>
 
-							<!-- Video feed -->
+							<!-- Video feed with connection status indicator -->
 							{#if remoteStreams[participant.user.id]}
 								<div
 									class="relative aspect-video w-full overflow-hidden rounded-lg bg-muted md:flex-1"
@@ -424,16 +492,58 @@
 										bind:this={remoteVideoElements[participant.user.id]}
 										autoplay
 										playsinline
+										muted={false}
 										class="h-full w-full object-cover"
 									>
 										<track kind="captions" />
 									</video>
+
+									<!-- Connection status indicator -->
+									<div class="absolute bottom-2 right-2 rounded bg-background/80 px-2 py-1 text-xs">
+										{#if connectionStates[participant.user.id] === 'connected' || connectionStates[participant.user.id] === 'completed'}
+											<span class="flex items-center gap-1">
+												<span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
+												Connected
+											</span>
+										{:else if connectionStates[participant.user.id] === 'disconnected'}
+											<span class="flex items-center gap-1">
+												<span class="inline-block h-2 w-2 rounded-full bg-orange-500"></span>
+												Reconnecting...
+											</span>
+										{:else if connectionStates[participant.user.id] === 'failed'}
+											<span class="flex items-center gap-1">
+												<span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
+												Connection failed
+											</span>
+										{:else}
+											<span class="flex items-center gap-1">
+												<span class="inline-block h-2 w-2 rounded-full bg-blue-500"></span>
+												{connectionStates[participant.user.id] || 'Connecting'}
+											</span>
+										{/if}
+									</div>
+
+									<!-- Debug info - can be removed in production -->
+									{#if streamInfo[participant.user.id]}
+										<div class="absolute top-2 left-2 rounded bg-background/80 px-2 py-1 text-xs">
+											V: {streamInfo[participant.user.id].videoTracks}
+											A: {streamInfo[participant.user.id].audioTracks}
+										</div>
+									{/if}
 								</div>
 							{:else}
 								<div
 									class="flex aspect-video w-full items-center justify-center rounded-lg bg-muted md:flex-1"
 								>
-									<p class="text-muted-foreground">Connecting...</p>
+									<p class="text-muted-foreground">
+										{connectionStates[participant.user.id] === 'checking'
+											? 'Connecting...'
+											: connectionStates[participant.user.id] === 'failed'
+											? 'Connection failed'
+											: connectionStates[participant.user.id] === 'disconnected'
+											? 'Reconnecting...'
+											: 'Waiting for connection'}
+									</p>
 								</div>
 							{/if}
 						</div>
