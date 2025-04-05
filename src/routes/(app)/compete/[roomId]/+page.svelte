@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { authClient } from '$lib/auth-client';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
@@ -32,6 +33,10 @@
 
 			room = data.room;
 			participants = data.participants;
+			if (room?.isActive) {
+				toast.success('Competition has started!');
+				goto(`/compete/${roomId}/play`);
+			}
 			loading = false;
 		} catch (err) {
 			console.error('Error fetching room details:', err);
@@ -78,7 +83,8 @@
 			}
 
 			toast.success('Competition started!');
-			// Further logic for competition start will go here
+			// Redirect to the play page
+			window.location.href = `/compete/${roomId}/play`;
 		} catch (err) {
 			console.error('Error starting competition:', err);
 			if (err instanceof Error)
@@ -90,15 +96,17 @@
 
 	onMount(() => {
 		fetchRoomDetails();
-		// Poll for updates every 5 seconds
-		intervalId = setInterval(fetchRoomDetails, 5000);
+		// Poll for updates every 1 second
+		intervalId = setInterval(fetchRoomDetails, 1000);
 	});
 
 	onDestroy(() => {
 		clearInterval(intervalId);
 	});
 
-	let isHost = $derived(participants.find((p) => p.user.id === $session.data?.user.id));
+	let isHost = $derived(
+		participants.find((p) => p.user.id === $session.data?.user.id && p.user.id === room?.creatorId)
+	);
 </script>
 
 <div class="container mx-auto max-w-3xl p-4">
