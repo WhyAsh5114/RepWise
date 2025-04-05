@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		const room = await prisma.room.findUnique({
 			where: {
 				id: roomId,
-				isActive: true
+				status: 'STARTING'
 			}
 		});
 

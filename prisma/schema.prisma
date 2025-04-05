@@ -106,9 +106,15 @@ model Room {
   creatorId    String
   creator      User              @relation("RoomCreator", fields: [creatorId], references: [id])
   participants RoomParticipant[]
-  isActive     Boolean           @default(false)
+  status       RoomStatus        @default(STARTING)
 
   @@map("room")
+}
+
+enum RoomStatus {
+  STARTING
+  ACTIVE
+  CLOSED
 }
 
 model RoomParticipant {

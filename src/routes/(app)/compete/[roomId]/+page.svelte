@@ -33,9 +33,12 @@
 
 			room = data.room;
 			participants = data.participants;
-			if (room?.isActive) {
+			if (room?.status === 'ACTIVE') {
 				toast.success('Competition has started!');
 				goto(`/compete/${roomId}/play`);
+			} else if (room?.status === 'CLOSED') {
+				toast.error('Competition has ended!');
+				goto(`/compete`);
 			}
 			loading = false;
 		} catch (err) {

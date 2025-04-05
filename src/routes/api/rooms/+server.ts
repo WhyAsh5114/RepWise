@@ -52,7 +52,6 @@ export const GET: RequestHandler = async ({ request }) => {
 						isActive: true
 					}
 				},
-				isActive: true
 			},
 			include: {
 				creator: {

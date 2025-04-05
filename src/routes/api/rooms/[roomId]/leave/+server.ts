@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 					id: roomId
 				},
 				data: {
-					isActive: false
+					status: 'CLOSED'
 				}
 			});
 

@@ -10,12 +10,14 @@
 		ChevronUpIcon,
 		ClipboardListIcon,
 		CogIcon,
+		DumbbellIcon,
 		LoaderCircleIcon,
 		LogInIcon,
+		ScanQrCodeIcon,
+
+		SwordsIcon,
 		UserRound,
-		UserRoundIcon,
-		DumbbellIcon,
-		ScanQrCodeIcon
+		UserRoundIcon
 	} from 'lucide-svelte';
 
 	const sidebar = useSidebar();
@@ -49,6 +51,11 @@
 					label: 'Nutritional OCR',
 					href: '/nutritional-ocr',
 					icon: ScanQrCodeIcon
+				},
+				{
+					label: 'Compete',
+					href: '/compete',
+					icon: SwordsIcon
 				}
 			]
 		},

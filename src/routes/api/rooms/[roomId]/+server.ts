@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
 		const room = await prisma.room.findUnique({
 			where: {
 				id: roomId,
-				isActive: true
+				status: 'ACTIVE'
 			},
 			include: {
 				creator: {
@@ -37,7 +37,8 @@ export const GET: RequestHandler = async ({ request, params }) => {
 
 		const participants = await prisma.roomParticipant.findMany({
 			where: {
-				roomId
+				roomId,
+				isActive: true
 			},
 			include: {
 				user: {
@@ -91,7 +92,7 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 				id: roomId
 			},
 			data: {
-				isActive: false
+				status: 'CLOSED'
 			}
 		});
 
