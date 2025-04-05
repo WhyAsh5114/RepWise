@@ -88,7 +88,6 @@
 			const response = await fetch('/api/macros');
 			if (!response.ok) throw new Error('Failed to fetch macros data');
 			macrosData = await response.json();
-			console.log(JSON.parse(macrosData[0].rawData).category_properties);
 		} catch (err) {
 			toast.error('Error loading macros data');
 		}

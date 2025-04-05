@@ -31,6 +31,4 @@ export async function POST({ request }) {
 	} catch (e) {
 		return new Response('Error saving onboarding data', { status: 500 });
 	}
-
-	console.log(onboarding);
 }

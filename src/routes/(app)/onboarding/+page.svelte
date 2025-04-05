@@ -156,7 +156,6 @@
 				throw new Error('Network response was not ok');
 			}
 			const data = await response.text();
-			console.log(data);
 			isSuccess = true;
 			toast.success('Your fitness profile has been created!');
 		} catch (error) {
