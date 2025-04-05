@@ -6,6 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import type { RoomParticipant, User } from '@prisma/client';
 	import { onDestroy, onMount } from 'svelte';
+	import { Medal } from 'lucide-svelte';
 
 	const roomId = $page.params.roomId;
 	let session = authClient.useSession();
@@ -18,6 +19,44 @@
 	let loading = $state(true);
 	let localVideoElement = $state<HTMLVideoElement | null>(null);
 	let remoteVideoElements = $state<Record<string, HTMLVideoElement>>({});
+
+	// Add scoring system
+	let participantScores = $state<Record<string, number>>({});
+	const updateInterval = 2000; // Update scores every 2 seconds
+	let scoreUpdateTimer: number | undefined;
+
+	// Auto-generate random scores for demo purposes
+	// In a real app, this would be based on exercise detection and form evaluation
+	function updateScores() {
+		participants.forEach((participant) => {
+			if (!participantScores[participant.user.id]) {
+				participantScores[participant.user.id] = 0;
+			}
+
+			// Random score increments between 0-5 points
+			if (Math.random() > 0.3) {
+				// 70% chance to increment score
+				participantScores[participant.user.id] += Math.floor(Math.random() * 5) + 1;
+			}
+		});
+	}
+
+	// Get sorted participants by score (highest first)
+	function getSortedParticipants() {
+		return [...participants].sort((a, b) => {
+			const scoreA = participantScores[a.user.id] || 0;
+			const scoreB = participantScores[b.user.id] || 0;
+			return scoreB - scoreA;
+		});
+	}
+
+	// Get medal type based on rank
+	function getMedalType(rank: number): string {
+		if (rank === 0) return 'text-yellow-400';
+		if (rank === 1) return 'text-gray-400';
+		if (rank === 2) return 'text-amber-600';
+		return '';
+	}
 
 	$effect(() => {
 		if (localVideoElement && localStream) {
@@ -54,6 +93,11 @@
 
 			participants = data.participants;
 
+			// Initialize scores for all participants
+			participants.forEach((p) => {
+				participantScores[p.user.id] = 0;
+			});
+
 			// Get local media stream
 			localStream = await navigator.mediaDevices.getUserMedia({
 				video: true,
@@ -66,10 +110,16 @@
 				if (participant.user.id === $session.data?.user.id) continue;
 
 				await createPeerConnection(participant.user.id);
+				// Automatically initiate call instead of waiting for button click
+				await initiateCall(participant.user.id);
 			}
 
 			// Set up signaling via Cloudflare API
-			connectToSignalingServer();
+			signalConnection = connectToSignalingServer();
+
+			// Start score updating (simulating real exercise scoring)
+			scoreUpdateTimer = window.setInterval(updateScores, updateInterval);
+
 			loading = false;
 		} catch (err) {
 			console.error('Error setting up WebRTC:', err);
@@ -247,7 +297,12 @@
 		localStream?.getTracks().forEach((track) => track.stop());
 
 		// Close signaling connection
-		signalConnection!.close();
+		signalConnection?.close();
+
+		// Clear score update timer
+		if (scoreUpdateTimer) {
+			window.clearInterval(scoreUpdateTimer);
+		}
 	});
 </script>
 
@@ -274,61 +329,83 @@
 			<Button variant="destructive" onclick={leaveCompetition}>Leave Competition</Button>
 		</div>
 
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			<!-- Local video -->
-			<div class="relative aspect-video overflow-hidden rounded-lg bg-muted">
-				{#if localStream}
-					<video bind:this={localVideoElement} autoplay muted class="h-full w-full object-cover"
-					></video>
-					<div class="absolute bottom-2 left-2 rounded bg-background/80 px-2 py-1 text-sm text-foreground">
-						You (Live)
-					</div>
-				{:else}
-					<div class="flex h-full items-center justify-center">
-						<p class="text-foreground">Camera not available</p>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Remote videos -->
-			<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-			{#each Object.entries(remoteStreams) as [peerId, _]}
-				<div class="relative aspect-video overflow-hidden rounded-lg bg-muted">
-					<video
-						bind:this={remoteVideoElements[peerId]}
-						autoplay
-						class="h-full w-full object-cover"
-					>
-						<track kind="captions" />
-					</video>
-					<div class="absolute bottom-2 left-2 rounded bg-background/80 px-2 py-1 text-sm text-foreground">
-						{participants.find((p) => p.user.id === peerId)?.user.name || 'Participant'} (Live)
-					</div>
+		<!-- Local video - full width -->
+		<div class="relative mb-4 aspect-video w-full overflow-hidden rounded-lg bg-muted">
+			{#if localStream}
+				<video bind:this={localVideoElement} autoplay muted class="h-full w-full object-cover"
+				></video>
+				<div
+					class="absolute bottom-2 left-2 rounded bg-background/80 px-2 py-1 text-sm text-foreground"
+				>
+					You (Live) - Score: {participantScores[$session.data?.user.id || ''] || 0}
 				</div>
-			{/each}
+			{:else}
+				<div class="flex h-full items-center justify-center">
+					<p class="text-foreground">Camera not available</p>
+				</div>
+			{/if}
 		</div>
 
-		<div class="mt-6">
-			<h2 class="mb-2 text-xl font-semibold">Participants</h2>
-			<div class="flex flex-wrap gap-2">
-				{#each participants as participant}
-					<div class="flex items-center space-x-2 rounded bg-secondary p-2">
-						<Avatar.Root>
-							{#if participant.user.image}
-								<Avatar.Image src={participant.user.image} alt={participant.user.name} />
+		<!-- Leaderboard and remote videos -->
+		<div class="space-y-4">
+			<h2 class="text-xl font-semibold">Leaderboard</h2>
+
+			<!-- Ranked participants and their videos -->
+			<div class="grid grid-cols-1 gap-4">
+				{#each getSortedParticipants() as participant, index}
+					{#if participant.user.id !== $session.data?.user.id}
+						<div
+							class="flex flex-col items-center gap-4 rounded-lg border border-muted p-3 md:flex-row"
+						>
+							<div class="flex w-full items-center gap-2 md:w-64">
+								<div class="flex h-8 w-8 items-center justify-center">
+									{#if index < 3}
+										<Medal class={getMedalType(index)} size={24} />
+									{:else}
+										<span class="font-bold">{index + 1}</span>
+									{/if}
+								</div>
+
+								<Avatar.Root>
+									{#if participant.user.image}
+										<Avatar.Image src={participant.user.image} alt={participant.user.name} />
+									{:else}
+										<Avatar.Fallback>
+											{participant.user.name?.charAt(0) || '?'}
+										</Avatar.Fallback>
+									{/if}
+								</Avatar.Root>
+
+								<div class="flex flex-col">
+									<span class="font-medium">{participant.user.name}</span>
+									<span class="text-sm text-muted-foreground"
+										>Score: {participantScores[participant.user.id] || 0}</span
+									>
+								</div>
+							</div>
+
+							<!-- Video feed -->
+							{#if remoteStreams[participant.user.id]}
+								<div
+									class="relative aspect-video w-full overflow-hidden rounded-lg bg-muted md:flex-1"
+								>
+									<video
+										bind:this={remoteVideoElements[participant.user.id]}
+										autoplay
+										class="h-full w-full object-cover"
+									>
+										<track kind="captions" />
+									</video>
+								</div>
 							{:else}
-								<Avatar.Fallback>
-									{participant.user.name?.charAt(0) || '?'}
-								</Avatar.Fallback>
+								<div
+									class="flex aspect-video w-full items-center justify-center rounded-lg bg-muted md:flex-1"
+								>
+									<p class="text-muted-foreground">Connecting...</p>
+								</div>
 							{/if}
-						</Avatar.Root>
-						<span>{participant.user.name}</span>
-						{#if participant.user.id !== $session.data?.user.id && !remoteStreams[participant.user.id]}
-							<Button variant="outline" size="sm" onclick={() => initiateCall(participant.user.id)}>
-								Connect
-							</Button>
-						{/if}
-					</div>
+						</div>
+					{/if}
 				{/each}
 			</div>
 		</div>

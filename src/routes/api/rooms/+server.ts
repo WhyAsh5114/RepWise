@@ -23,7 +23,8 @@ export const POST: RequestHandler = async ({ request }) => {
 					create: {
 						userId: session.user.id
 					}
-				}
+				},
+				status: 'STARTING'
 			}
 		});
 
@@ -48,9 +49,9 @@ export const GET: RequestHandler = async ({ request }) => {
 			where: {
 				participants: {
 					some: {
-						userId: session.user.id,
+						userId: session.user.id
 					}
-				},
+				}
 			},
 			include: {
 				creator: {
