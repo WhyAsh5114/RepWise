@@ -24,6 +24,12 @@
 		email?: string; // Add email for stable identification
 	}
 
+	// Interface for room state
+	interface RoomState {
+		hostId: string | null;
+		creationTime: number;
+	}
+
 	let roomId = page.params.roomId;
 	let isCompetitionActive = $state(false);
 	let participants = $state<Participant[]>([]);
@@ -31,6 +37,7 @@
 	let loading = $state(true);
 	let creatorId = $state<string | null>(null);
 	let roomCreationTime = $state<number>(Date.now()); // Track room creation time
+	let roomState = $state<RoomState>({ hostId: null, creationTime: Date.now() });
 
 	// Agora related variables - only need client and tracks
 	let agoraClient = $state<IAgoraRTCClient | null>(null);
@@ -183,11 +190,27 @@
 					console.log(`[AGORA] Removed user ${user.uid} from remoteUsers`);
 				}
 
+				// Check if the host left
+				const userIdStr = user.uid.toString();
+				const wasHost = participants.find((p) => p.userId === userIdStr && p.isHost);
+
 				// Remove from participants
-				participants = participants.filter((p) => p.userId !== user.uid.toString());
+				participants = participants.filter((p) => p.userId !== userIdStr);
 				console.log(
 					`[AGORA] Removed user ${user.uid} from participants, remaining: ${participants.length}`
 				);
+
+				// If the host left, assign a new host
+				if (wasHost && participants.length > 0) {
+					// Select the participant who has been in the room the longest
+					const oldestParticipant = participants[0];
+					oldestParticipant.isHost = true;
+					roomState.hostId = oldestParticipant.userId;
+
+					// Update participants to trigger reactivity
+					participants = [...participants];
+					console.log(`[AGORA] Host left, assigned ${oldestParticipant.name} as new host`);
+				}
 
 				updateRankings();
 			});
@@ -252,37 +275,56 @@
 					}
 				});
 
-				// Determine host - first joiner or based on email if authentication is used
-				let isCurrentUserHost = false;
+				// Improved host determination logic
+				let shouldBeHost = false;
 				const userEmail = $session.data?.user?.email;
 
-				if (remoteUsersList.length === 0) {
-					// First user to join becomes host
-					isCurrentUserHost = true;
-					console.log(`[AGORA] No other users found, setting self as host`);
-				} else {
-					// Check participants to see if there's already a host
-					const existingHost = participants.find(p => p.isHost);
+				// Get existing host if any
+				const existingHost = participants.find((p) => p.isHost);
 
-					// If no host is set yet, the first authenticated user becomes host
-					if (!existingHost && userEmail) {
-						isCurrentUserHost = true;
-						console.log(`[AGORA] No host exists yet, setting authenticated user as host`);
+				if (!existingHost) {
+					// No existing host found
+					if (remoteUsersList.length === 0) {
+						// First user in the room becomes host
+						shouldBeHost = true;
+						roomState.hostId = uid.toString();
+						roomState.creationTime = Date.now();
+						console.log(`[AGORA] First user in room, becoming host`);
+					} else {
+						// There are other users but no host yet (possible during initialization)
+						// Wait a moment to check if any other user is claiming host status
+						shouldBeHost = false;
+						console.log(`[AGORA] Other users present but no host, waiting to determine host`);
+
+						// We'll check again after a delay to see if a host appeared
+						setTimeout(() => {
+							const delayedHostCheck = participants.find((p) => p.isHost);
+							if (!delayedHostCheck && participants.length > 0) {
+								// Still no host, make the first participant the host
+								const firstParticipant = participants[0];
+								firstParticipant.isHost = true;
+								roomState.hostId = firstParticipant.userId;
+								participants = [...participants]; // Trigger reactivity
+								console.log(`[AGORA] Assigned ${firstParticipant.name} as host after delay`);
+							}
+						}, 3000);
 					}
+				} else {
+					// Host already exists, respect that
+					console.log(`[AGORA] Host already exists: ${existingHost.name}`);
+					roomState.hostId = existingHost.userId;
 				}
 
 				// Add current user to participants
 				const userName = $session.data?.user?.name || `You (${uid})`;
 				participants = [
-					...participants
-						.filter((p) => p.userId !== uid.toString())
-						.map((p) => ({ ...p })),
+					...participants.filter((p) => p.userId !== uid.toString()).map((p) => ({ ...p })),
 					{
 						userId: uid.toString(),
 						name: userName,
 						image: $session.data?.user?.image ?? undefined,
 						email: userEmail,
-						isHost: isCurrentUserHost
+						isHost: shouldBeHost
 					}
 				];
 
@@ -483,8 +525,10 @@
 	// Determine if current user is host
 	let isHost = $derived(() => {
 		const currentUserId = agoraClient?.uid?.toString();
-		const currentUserParticipant = participants.find(p => p.userId === currentUserId);
-		return !!currentUserParticipant?.isHost;
+		// Check both the participant list and roomState to determine host status
+		const isHostInParticipants = participants.some((p) => p.userId === currentUserId && p.isHost);
+		const isHostInState = roomState.hostId === currentUserId;
+		return isHostInParticipants || isHostInState;
 	});
 </script>
 
