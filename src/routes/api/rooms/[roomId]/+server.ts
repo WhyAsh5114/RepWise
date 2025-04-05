@@ -37,8 +37,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
 
 		const participants = await prisma.roomParticipant.findMany({
 			where: {
-				roomId,
-				isActive: true
+				roomId
 			},
 			include: {
 				user: {
