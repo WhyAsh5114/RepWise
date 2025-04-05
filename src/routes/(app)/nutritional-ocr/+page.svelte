@@ -74,6 +74,7 @@
 				parsedNutrition.carbs = extractValue('Total Carbohydrate', result);
 				parsedNutrition.protein = extractValue('Protein', result);
 			} catch (err) {
+				if (err instanceof Error)
 				error = err.message;
 			} finally {
 				loading = false;
