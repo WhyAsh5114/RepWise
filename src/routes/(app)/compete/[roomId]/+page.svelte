@@ -20,6 +20,8 @@
 		userId: string;
 		name: string;
 		image?: string;
+		isHost?: boolean; // Add flag to track host status
+		email?: string; // Add email for stable identification
 	}
 
 	let roomId = page.params.roomId;
@@ -28,6 +30,7 @@
 	let error = $state<string | null>(null);
 	let loading = $state(true);
 	let creatorId = $state<string | null>(null);
+	let roomCreationTime = $state<number>(Date.now()); // Track room creation time
 
 	// Agora related variables - only need client and tracks
 	let agoraClient = $state<IAgoraRTCClient | null>(null);
@@ -226,16 +229,23 @@
 					}
 				});
 
-				// Determine host (first user or lowest UID)
+				// Determine host - first joiner or based on email if authentication is used
+				let isCurrentUserHost = false;
+				const userEmail = $session.data?.user?.email;
+
 				if (remoteUsersList.length === 0) {
-					creatorId = uid.toString();
-					console.log(`[AGORA] No other users found, setting self as host with UID ${uid}`);
+					// First user to join becomes host
+					isCurrentUserHost = true;
+					console.log(`[AGORA] No other users found, setting self as host`);
 				} else {
-					// If there are remote users, use the lowest UID as creator
-					const allUids = [uid.toString(), ...remoteUsersList.map((u) => u.uid.toString())];
-					const lowestUid = allUids.sort()[0];
-					creatorId = lowestUid;
-					console.log(`[AGORA] Setting ${lowestUid} as host`);
+					// Check participants to see if there's already a host
+					const existingHost = participants.find(p => p.isHost);
+
+					// If no host is set yet, the first authenticated user becomes host
+					if (!existingHost && userEmail) {
+						isCurrentUserHost = true;
+						console.log(`[AGORA] No host exists yet, setting authenticated user as host`);
+					}
 				}
 
 				// Add current user to participants
@@ -243,11 +253,13 @@
 				participants = [
 					...participants
 						.filter((p) => p.userId !== uid.toString())
-						.map((p) => ({ ...p, image: p.image ?? undefined })),
+						.map((p) => ({ ...p })),
 					{
 						userId: uid.toString(),
 						name: userName,
-						image: $session.data?.user?.image ?? undefined
+						image: $session.data?.user?.image ?? undefined,
+						email: userEmail,
+						isHost: isCurrentUserHost
 					}
 				];
 
@@ -441,7 +453,12 @@
 		}
 	});
 
-	let isHost = $derived($session.data?.user?.id === creatorId);
+	// Determine if current user is host
+	let isHost = $derived(() => {
+		const currentUserId = agoraClient?.uid?.toString();
+		const currentUserParticipant = participants.find(p => p.userId === currentUserId);
+		return !!currentUserParticipant?.isHost;
+	});
 </script>
 
 <!-- The UI remains similar but updates for our simplified approach -->
@@ -559,7 +576,7 @@
 											</div>
 										{/if}
 										<span>{participant.name}</span>
-										{#if participant.userId === creatorId}
+										{#if participant.isHost}
 											<Badge variant="secondary" class="ml-2">Host</Badge>
 										{/if}
 									</div>
