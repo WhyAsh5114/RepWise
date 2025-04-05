@@ -25,7 +25,7 @@ export async function POST({ request }) {
 		);
 
 		return new Response(
-			JSON.stringify({ success: true, result: apiResponse.document.toString() }),
+			JSON.stringify({ success: true, result: apiResponse.document?.toString() }),
 			{ headers: { 'Content-Type': 'application/json' } }
 		);
 	} catch (err) {
