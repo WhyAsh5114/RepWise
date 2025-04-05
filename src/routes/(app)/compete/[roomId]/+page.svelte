@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Separator } from '$lib/components/ui/separator';
+	import DetectionComponent from '$lib/detection-component.svelte';
 	import type { IAgoraRTCClient, IAgoraRTCRemoteUser, ICameraVideoTrack } from 'agora-rtc-sdk-ng';
 	import { Clipboard, LogOut, Trophy, UserRound, Users } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
@@ -55,6 +56,17 @@
 	const appId = PUBLIC_AGORA_APP_ID;
 
 	let session = authClient.useSession();
+
+	let detectionEnabled = $state(false);
+	let exerciseName = $state('Push Up'); // Default exercise type
+	let selectedCamera = $state('');
+	let detectionRepCount = $state(0);
+
+	// Competition timer variables
+	let competitionTimeInSeconds = $state(30);
+	let competitionTimerInterval: ReturnType<typeof setInterval>;
+	let scoreUpdateInterval: ReturnType<typeof setInterval>;
+	let scoresRefreshInterval: ReturnType<typeof setInterval>;
 
 	// Retry playing local video with backoff
 	function playLocalVideo(attempt = 0) {
@@ -391,10 +403,12 @@
 			await agoraClient.publish([localTrack]);
 			console.log('[AGORA] Published high quality video');
 
-			// Use our improved play function with retries
-			setTimeout(() => {
-				playLocalVideo(0);
-			}, 300);
+			 // Enable detection after local track is ready
+			detectionEnabled = true;
+
+			// Instead of playing in local-player, we'll handle this through the detection component
+			// but we still set this flag for state management
+			localVideoPlaying = true;
 
 			toast.success('Joined video stream!');
 		} catch (err) {
@@ -434,17 +448,90 @@
 		toast.success('Room ID copied to clipboard!');
 	}
 
+	// Function to sync score with database
+	async function syncScore() {
+		if (!browser || !agoraClient?.uid || !isCompetitionActive) return;
+
+		try {
+			const currentScore = scores[agoraClient.uid.toString()] || 0;
+
+			await fetch('/api/competition/score', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					userId: agoraClient.uid.toString(),
+					roomId,
+					score: currentScore,
+					reps: currentScore // Using same value for both since reps = score in our app
+				})
+			});
+		} catch (err) {
+			console.error('Error syncing score:', err);
+		}
+	}
+
+	// Function to fetch all scores from the database
+	async function fetchScores() {
+		if (!browser || !isCompetitionActive) return;
+
+		try {
+			const response = await fetch(`/api/competition/scores/${roomId}`);
+			if (!response.ok) throw new Error('Failed to fetch scores');
+
+			const data = await response.json();
+
+			// Update local scores state with fetched data
+			const fetchedScores: Record<string, number> = {};
+			data.scores.forEach((entry: { userId: string; score: number }) => {
+				fetchedScores[entry.userId] = entry.score;
+			});
+
+			// Only update scores for remote users to prevent overriding local score
+			Object.keys(fetchedScores).forEach(userId => {
+				if (userId !== agoraClient?.uid?.toString()) {
+					scores[userId] = fetchedScores[userId];
+				}
+			});
+
+			// Trigger update of rankings
+			scores = { ...scores };
+			updateRankings();
+		} catch (err) {
+			console.error('Error fetching scores:', err);
+		}
+	}
+
+	// Start competition with timer
 	async function startCompetition() {
 		if (!browser) return;
 
 		try {
 			console.log('[AGORA] Starting competition');
 			isCompetitionActive = true;
+			competitionTimeInSeconds = 30; // Reset timer to 30 seconds
 
-			// Notify other users that competition is starting (just console log for now)
+			// Start the countdown timer
+			competitionTimerInterval = setInterval(() => {
+				if (competitionTimeInSeconds > 0) {
+					competitionTimeInSeconds--;
+				} else {
+					// Time's up, end the competition
+					endCompetition();
+				}
+			}, 1000);
+
+			// Start score sync interval (every second)
+			scoreUpdateInterval = setInterval(syncScore, 1000);
+
+			// Start scores refresh interval (every second)
+			scoresRefreshInterval = setInterval(fetchScores, 1000);
+
+			// Notify other users that competition is starting
 			console.log('[AGORA] Notifying others that competition is starting');
 
-			// Start video stream now
+			// Start video stream
 			await startVideoStream();
 
 			toast.success('Competition started!');
@@ -453,6 +540,21 @@
 			if (err instanceof Error)
 				error = err.message || 'An error occurred while starting the competition';
 		}
+	}
+
+	// End competition function
+	function endCompetition() {
+		isCompetitionActive = false;
+
+		// Clear all intervals
+		if (competitionTimerInterval) clearInterval(competitionTimerInterval);
+		if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
+		if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
+
+		// Final sync of scores
+		syncScore();
+
+		toast.info('Competition ended!');
 	}
 
 	function updateRankings() {
@@ -468,47 +570,44 @@
 			.sort((a, b) => b.score - a.score);
 	}
 
-	// Simulate scoring - in a real app this would be based on exercise detection
-	function simulateScoring() {
-		if (!browser || !isCompetitionActive) return;
-
-		// Randomly increase scores
-		let scoresChanged = false;
-
-		participants.forEach((participant) => {
-			if (Math.random() > 0.5) {
-				const newScore = (scores[participant.userId] || 0) + Math.floor(Math.random() * 5) + 1;
-				scores[participant.userId] = newScore;
-				scoresChanged = true;
-			}
-		});
-
-		if (scoresChanged) {
+	// Listen for rep count updates from the detection component
+	function handleRepCountUpdate(newCount: number) {
+		detectionRepCount = newCount;
+		// Update the user's score with the rep count
+		if (agoraClient?.uid) {
+			scores[agoraClient.uid.toString()] = newCount;
 			updateRankings();
 		}
 	}
-
-	let scoreIntervalId: ReturnType<typeof setInterval>;
 
 	onMount(() => {
 		// Connect to Agora immediately when page loads
 		connectToAgora();
 
-		if (browser) {
-			// Simulate score updates
-			scoreIntervalId = setInterval(simulateScoring, 2000);
-		}
-
 		return () => {
-			if (browser && scoreIntervalId) {
-				clearInterval(scoreIntervalId);
+			if (browser) {
+				// Clear all intervals on component unmount
+				if (competitionTimerInterval) clearInterval(competitionTimerInterval);
+				if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
+				if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
+
+				// Clean up Agora resources
+				if (localTrack) {
+					localTrack.close();
+				}
+				if (agoraClient) {
+					agoraClient.leave();
+				}
 			}
 		};
 	});
 
 	onDestroy(() => {
 		if (browser) {
-			if (scoreIntervalId) clearInterval(scoreIntervalId);
+			// Clear all intervals on component destruction
+			if (competitionTimerInterval) clearInterval(competitionTimerInterval);
+			if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
+			if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
 
 			// Clean up Agora resources
 			if (localTrack) {
@@ -557,23 +656,53 @@
 			<div class="col-span-2 space-y-4">
 				<Card.Root>
 					<Card.Header>
-						<Card.Title class="flex items-center">
-							<Trophy class="mr-2 h-5 w-5 text-yellow-500" />
-							Competition Streams
-						</Card.Title>
+						<div class="flex items-center justify-between">
+							<Card.Title class="flex items-center">
+								<Trophy class="mr-2 h-5 w-5 text-yellow-500" />
+								Competition Streams
+							</Card.Title>
+							<!-- Timer display -->
+							<div class="flex items-center gap-2">
+								<Badge variant="outline" class="text-lg">
+									<span class="font-mono">{Math.floor(competitionTimeInSeconds / 60)}:{(competitionTimeInSeconds % 60).toString().padStart(2, '0')}</span>
+								</Badge>
+							</div>
+						</div>
 					</Card.Header>
 					<Card.Content>
-						<div class="grid grid-cols-2 gap-3">
-							<!-- Local stream -->
-							<div class="relative overflow-hidden rounded-lg bg-muted">
+						<!-- Local stream (full width) -->
+						<div class="relative mb-3 overflow-hidden rounded-lg bg-muted">
+							{#if detectionEnabled && localTrack}
+								<DetectionComponent
+									timer={0}
+									exerciseName={exerciseName}
+									selectedCamera={selectedCamera}
+									inputSource="webcam"
+									videoFile={null}
+									on:repcount={(e) => handleRepCountUpdate(e.detail)}
+								/>
+							{:else}
 								<div id="local-player" class="aspect-video w-full"></div>
-								<div
-									class="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white"
-								>
-									You (Live)
-								</div>
+							{/if}
+							<div
+								class="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white"
+							>
+								You (Live)
 							</div>
+						</div>
 
+						<!-- Dynamic grid for remote participants -->
+						<div
+							class={`grid gap-3 ${
+								Object.keys(remoteUsers).length <= 1
+									? 'grid-cols-1'
+									: Object.keys(remoteUsers).length <= 2
+										? 'grid-cols-2'
+										: Object.keys(remoteUsers).length <= 4
+											? 'grid-cols-2'
+											: 'grid-cols-3'
+							}`}
+						>
 							<!-- Remote streams -->
 							<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
 							{#each Object.entries(remoteUsers) as [uid, _]}
@@ -583,6 +712,12 @@
 										class="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white"
 									>
 										{participants.find((p) => p.userId === uid)?.name || 'Participant'}
+									</div>
+									<!-- Score overlay -->
+									<div
+										class="absolute right-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white"
+									>
+										{scores[uid] || 0} reps
 									</div>
 								</div>
 							{/each}
@@ -600,10 +735,87 @@
 					</Card.Content>
 				</Card.Root>
 
-				<!-- ...existing instructions card... -->
+				<!-- Instructions card -->
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Exercise Instructions</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<p class="text-muted-foreground">
+							Perform as many push-ups as you can with proper form. The system will count your reps
+							automatically.
+						</p>
+					</Card.Content>
+				</Card.Root>
 			</div>
 
-			<!-- ...existing scores and ranking section... -->
+			<!-- Leaderboard and scoring section -->
+			<div class="space-y-4">
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="flex items-center">
+							<Trophy class="mr-2 h-5 w-5 text-yellow-500" />
+							Leaderboard
+						</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<div class="space-y-3">
+							{#each rankings.slice(0, 10) as participant, index}
+								<div class="flex items-center justify-between rounded-md bg-muted/40 p-2">
+									<div class="flex items-center gap-2">
+										<div
+											class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10"
+										>
+											{#if index === 0}
+												<span class="text-yellow-500">🥇</span>
+											{:else if index === 1}
+												<span class="text-gray-400">🥈</span>
+											{:else if index === 2}
+												<span class="text-amber-700">🥉</span>
+											{:else}
+												<span class="text-muted-foreground">{index + 1}</span>
+											{/if}
+										</div>
+										<span>{participant.userName}</span>
+									</div>
+									<Badge variant="secondary">{participant.score} reps</Badge>
+								</div>
+							{/each}
+
+							{#if rankings.length === 0}
+								<p class="py-4 text-center text-muted-foreground">No scores yet</p>
+							{/if}
+						</div>
+					</Card.Content>
+				</Card.Root>
+
+				<!-- User stats card -->
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Your Stats</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<div class="space-y-4">
+							<div class="flex justify-between">
+								<span class="text-muted-foreground">Your Reps:</span>
+								<span class="font-semibold">{scores[agoraClient?.uid?.toString() || ''] || 0}</span>
+							</div>
+							<div class="flex justify-between">
+								<span class="text-muted-foreground">Current Rank:</span>
+								<span class="font-semibold">
+									{rankings.findIndex((r) => r.userId === (agoraClient?.uid?.toString() || '')) +
+										1 || '-'}
+									/ {rankings.length}
+								</span>
+							</div>
+							<div class="flex justify-between">
+								<span class="text-muted-foreground">Personal Best:</span>
+								<span class="font-semibold">{scores[agoraClient?.uid?.toString() || ''] || 0}</span>
+							</div>
+						</div>
+					</Card.Content>
+				</Card.Root>
+			</div>
 		</div>
 	{:else}
 		<!-- Waiting room view -->
@@ -666,8 +878,10 @@
 							Share Room ID
 						</Button>
 
-						{#if participants.length > 1 && isHost}
-							<Button onclick={startCompetition}>Start Competition</Button>
+						{#if participants.length > 1 && isHost()}
+							<Button onclick={startCompetition}>
+								Start 30s Competition
+							</Button>
 						{/if}
 					</div>
 

@@ -6,7 +6,7 @@
 		type PoseLandmarkerResult
 	} from '@mediapipe/tasks-vision';
 	import { LoaderCircle, Activity } from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import Button from './components/ui/button/button.svelte';
 	import Card from './components/ui/card/card.svelte';
@@ -16,6 +16,9 @@
 	import Progress from './components/ui/progress/progress.svelte';
 	import { exerciseFeedbacks } from './exercise-feedback';
 	import { cn } from './utils';
+
+	// Setup event dispatcher for rep count updates
+	const dispatch = createEventDispatcher();
 
 	type PropsType = {
 		timer: number;
@@ -111,6 +114,13 @@
 	$effect(() => {
 		if (feedbackMessages.length > 0) {
 			speakLatestFeedback();
+		}
+	});
+
+	// Update repCount to dispatch events when it changes
+	$effect(() => {
+		if (repCount > 0) {
+			dispatch('repcount', repCount);
 		}
 	});
 
@@ -267,7 +277,12 @@
 							if (feedback) {
 								const result = feedback.feedbackFunction(poseSequence);
 								feedbackMessages = result.feedbacks;
-								repCount = result.reps; // Store the rep count
+
+								// Update rep count and dispatch the event
+								if (repCount !== result.reps) {
+									repCount = result.reps;
+									dispatch('repcount', repCount);
+								}
 
 								// Add score to history and update with average
 								scoreHistory.push(result.score);

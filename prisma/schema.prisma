@@ -117,3 +117,15 @@ model Routines {
   userId       String
   user         User     @relation(fields: [userId], references: [id])
 }
+
+model CompetitionScore {
+  id        String   @id @default(cuid())
+  userId    String
+  roomId    String
+  score     Int      @default(0)
+  reps      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, roomId])
+}
