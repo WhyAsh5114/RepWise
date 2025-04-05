@@ -124,7 +124,6 @@ model RoomParticipant {
   userId   String
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt DateTime @default(now())
-  isActive Boolean  @default(true)
 
   @@unique([roomId, userId])
   @@map("room_participant")

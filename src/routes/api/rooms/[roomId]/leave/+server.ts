@@ -45,25 +45,15 @@ export const POST: RequestHandler = async ({ request, params }) => {
 			});
 
 			// Mark all participants as inactive
-			await prisma.roomParticipant.updateMany({
-				where: {
-					roomId
-				},
-				data: {
-					isActive: false
-				}
+			await prisma.roomParticipant.deleteMany({
+				where: { roomId }
 			});
 
 			return json({ message: 'Room closed successfully' });
 		} else {
 			// Just mark this participant as inactive
-			await prisma.roomParticipant.update({
-				where: {
-					id: participant.id
-				},
-				data: {
-					isActive: false
-				}
+			await prisma.roomParticipant.delete({
+				where: { id: participant.id }
 			});
 
 			return json({ message: 'Left room successfully' });
