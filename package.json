@@ -63,6 +63,7 @@
 		"@prisma/client": "^6.5.0",
 		"barqode": "^0.0.2",
 		"better-auth": "^1.2.5",
+		"elevenlabs": "^1.56.0",
 		"lucide-svelte": "^0.487.0",
 		"prisma": "^6.5.0"
 	}

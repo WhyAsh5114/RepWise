@@ -9,7 +9,7 @@
 	import DetectionComponent from '$lib/detection-component.svelte';
 
 	let selectedExercise = $state('Squat');
-	let timer = $state(5);
+	let timer = $state(3);
 	let cameras = $state<MediaDeviceInfo[]>([]);
 	let selectedCamera = $state('');
 	let detectionStarted = $state(false);
