@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import {
 		Table,
 		TableBody,
@@ -11,7 +13,7 @@
 		TableRow
 	} from '$lib/components/ui/table';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Loader2 } from 'lucide-svelte';
+	import { Loader2, Camera } from 'lucide-svelte';
 	import {
 		Sheet,
 		SheetContent,
@@ -27,8 +29,9 @@
 
 	let result = '';
 	let error = '';
-	let loading = false;
-	let sheetOpen = false;
+	let loading = $state(false);
+	let sheetOpen = $state(false);
+	let cameraActive = $state(false);
 
 	let parsedNutrition: {
 		calories?: string;
@@ -37,12 +40,80 @@
 		protein?: string;
 	} = {};
 
+	// Camera selection
+	let selectedCamera = $state<string>('rear');
+	let selectedConstraints = $state<MediaTrackConstraints>({ facingMode: 'environment' });
+
+	const defaultConstraintOptions = [
+		{ id: 'front', label: 'Front Camera', constraints: { facingMode: 'user' } },
+		{ id: 'rear', label: 'Rear Camera', constraints: { facingMode: 'environment' } }
+	];
+
+	type CameraOption = {
+		id: string;
+		label: string;
+		constraints: { facingMode: string } | { deviceId: string };
+	};
+	let availableCameras = $state<CameraOption[]>(defaultConstraintOptions);
+
+	// Setup cameras and enumerate available devices
+	async function setupCameras() {
+		try {
+			const devices = await navigator.mediaDevices.enumerateDevices();
+			const videoDevices = devices.filter(({ kind }) => kind === 'videoinput');
+
+			availableCameras = [
+				...defaultConstraintOptions,
+				...videoDevices.map((device) => ({
+					id: device.deviceId,
+					constraints: { deviceId: device.deviceId },
+					label: device.label || `Camera ${availableCameras.length + 1}`
+				}))
+			];
+		} catch (e) {
+			console.error('Failed to enumerate cameras', e);
+			error = 'Failed to enumerate camera devices';
+		}
+	}
+
+	// Handle camera change
+	async function handleCameraChange(value: string) {
+		const camera = availableCameras.find((c) => c.id === value);
+		if (camera) {
+			selectedCamera = value;
+			selectedConstraints = camera.constraints;
+
+			// Stop current stream
+			if (stream) {
+				stream.getTracks().forEach((track) => track.stop());
+				stream = null;
+				cameraActive = false;
+			}
+
+			// Start new stream with selected constraints
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({ video: selectedConstraints });
+				videoEl.srcObject = stream;
+				await videoEl.play();
+				cameraActive = true;
+			} catch (err) {
+				error = 'Failed to access the selected camera.';
+				console.error(err);
+			}
+		}
+	}
+
 	// Ask for camera access on load
 	onMount(async () => {
 		try {
-			stream = await navigator.mediaDevices.getUserMedia({ video: true });
+			// Enumerate cameras first
+			await setupCameras();
+
+			// Start with default camera
+			stream = await navigator.mediaDevices.getUserMedia({ video: selectedConstraints });
 			videoEl.srcObject = stream;
 			await videoEl.play();
+			cameraActive = true;
 		} catch (err) {
 			error = 'Camera access denied or unavailable.';
 			console.error(err);
@@ -58,7 +129,7 @@
 
 	// Capture image and send to OCR
 	async function captureAndSendOCR() {
-		if (!videoEl || !canvasEl) return;
+		if (!videoEl || !canvasEl || !stream) return;
 
 		error = '';
 		result = '';
@@ -112,6 +183,24 @@
 	</CardHeader>
 	<CardContent>
 		<div class="space-y-4">
+			<div class="space-y-2">
+				<Label>Select Camera</Label>
+				<Select.Root type="single" value={selectedCamera} onValueChange={handleCameraChange}>
+					<Select.Trigger class="w-full">
+						<span>
+							{availableCameras.find((c) => c.id === selectedCamera)?.label ?? 'Select a camera'}
+						</span>
+					</Select.Trigger>
+					<Select.Content>
+						{#each availableCameras as camera}
+							<Select.Item value={camera.id}>
+								{camera.label}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+
 			<div class="relative aspect-video overflow-hidden rounded-lg bg-black">
 				<video bind:this={videoEl} autoplay muted playsinline class="h-full w-full object-cover"
 				></video>
@@ -120,7 +209,7 @@
 
 			<Button
 				onclick={captureAndSendOCR}
-				disabled={loading || !stream}
+				disabled={loading || !cameraActive}
 				variant="default"
 				class="w-full"
 			>
@@ -128,11 +217,11 @@
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
 					Processing...
 				{:else}
-					Start Processing
+					Capture & Process
 				{/if}
 			</Button>
 
-			{#if error}
+			{#if error && cameraActive}
 				<Alert variant="destructive">
 					<AlertDescription>{error}</AlertDescription>
 				</Alert>
