@@ -1,9 +1,8 @@
 import { auth } from '$lib/auth';
 import prisma from '$lib/prisma';
+import { json } from '@sveltejs/kit';
 
-export async function POST({ request }) {
-	const { macros_data } = await request.json();
-
+export async function GET({ request }) {
 	const session = await auth.api.getSession({
 		headers: request.headers
 	});
@@ -13,20 +12,14 @@ export async function POST({ request }) {
 	}
 
 	try {
-		await prisma.macros.create({
-			data: {
-				fat: macros_data.fat,
-				userId: session.user.id,
-				carbs: macros_data.carbs,
-				rawData: macros_data.rawData,
-				protein: macros_data.proteins,
-				calories: macros_data.calories
-			}
-		});
-
-		return new Response('Macro created', { status: 200 });
+		const result = await prisma.macros.findMany({});
+		
+		if (!result) {
+			return new Response('No macros found', { status: 404 });
+		}
+		return json(result);
 	} catch (e) {
 		console.error(e);
-		return new Response('Error creating macro', { status: 500 });
+		return new Response('Error fetching macros data', { status: 500 });
 	}
 }
