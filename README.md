@@ -2,8 +2,6 @@
 
 RepWise is an advanced AI-powered fitness application that helps users achieve their fitness goals through personalized workout plans, real-time form correction, and comprehensive health tracking.
 
-![RepWise Logo](/public/logo.png)
-
 ## Features
 
 - **AI-Powered Workout Generation**: Personalized plans based on user goals, equipment, and fitness level
