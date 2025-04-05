@@ -28,6 +28,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>RepWise</title>
+</svelte:head>
+
 <ModeWatcher />
 <Toaster />
 
