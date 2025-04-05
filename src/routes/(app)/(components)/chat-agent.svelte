@@ -11,19 +11,19 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Separator } from '$lib/components/ui/separator';
-	import { 
-		Send, 
-		X, 
-		Minimize2, 
-		Loader2, 
-		AlertTriangle, 
-		Bot, 
-		User, 
-		Trophy, 
-		Target, 
-		Weight, 
-		Ruler, 
-		Calendar, 
+	import {
+		Send,
+		X,
+		Minimize2,
+		Loader2,
+		AlertTriangle,
+		Bot,
+		User,
+		Trophy,
+		Target,
+		Weight,
+		Ruler,
+		Calendar,
 		Dumbbell,
 		CheckCircle2,
 		XCircle
@@ -123,107 +123,127 @@
 	// Function to handle the message that contains profile info
 	function renderMessage(message: Message) {
 		if (message.content.includes('Please confirm your fitness profile:') && userOnboardingData) {
-			return (
+			return `
 				<div class="space-y-4">
-					<p>{message.content}</p>
-					<ProfileCard profile={formatOnboardingDataToProfile(userOnboardingData)} />
+					<p>${message.content}</p>
+					${ProfileCard(formatOnboardingDataToProfile(userOnboardingData))}
 				</div>
-			);
+			`;
 		}
-		return <p>{message.content}</p>;
+		return `<p>${message.content}</p>`;
 	}
 
-	function ProfileCard({ profile }: { profile: UserProfile }) {
-		function handleConfirm() {
-			sendResponseMessage('yes this is correct');
-		}
-		
-		function handleUpdateInfo() {
-			sendResponseMessage('no not correct');
-		}
-		
-		return (
-			<Card.Root class="mb-4 bg-card/50 backdrop-blur">
-				<Card.Header>
-					<Card.Title class="flex items-center gap-2">
-						<User class="h-5 w-5 text-primary" />
-						Your Fitness Profile
-					</Card.Title>
-					<Card.Description>Please verify your information</Card.Description>
-				</Card.Header>
-				<Card.Content class="space-y-4">
+	function ProfileCard(profile: UserProfile) {
+		return `
+			<div class="mb-4 bg-card/50 backdrop-blur rounded-lg border shadow-sm">
+				<div class="border-b p-4">
+					<div class="flex items-center gap-2">
+						<div class="rounded-full bg-primary/10 p-2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
+							</svg>
+						</div>
+						<div>
+							<h3 class="font-medium">Your Fitness Profile</h3>
+							<p class="text-sm text-muted-foreground">Current Information</p>
+						</div>
+					</div>
+				</div>
+
+				<div class="p-4 space-y-6">
 					<div class="grid gap-4 md:grid-cols-2">
-						<div class="flex items-center gap-2">
-							<div class="rounded-full bg-primary/10 p-2">
-								<Trophy class="h-4 w-4 text-primary" />
+						<div class="flex items-center gap-3">
+							<div class="rounded-full bg-primary/10 p-2.5">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M6 9v12m12-12v12M12 6a4 4 0 0 0-4 4v10m8-10v10M12 3l4 3-4 3-4-3z"/>
+								</svg>
 							</div>
-							<div class="space-y-1">
-								<p class="text-sm text-muted-foreground">Level</p>
-								<p class="font-medium">{capitalize(profile.fitnessLevel)}</p>
+							<div>
+								<p class="text-xs text-muted-foreground">Fitness Level</p>
+								<p class="font-medium">${capitalize(profile.fitnessLevel)}</p>
 							</div>
 						</div>
 						
-						<div class="flex items-center gap-2">
-							<div class="rounded-full bg-primary/10 p-2">
-								<Target class="h-4 w-4 text-primary" />
+						<div class="flex items-center gap-3">
+							<div class="rounded-full bg-primary/10 p-2.5">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<circle cx="12" cy="12" r="10"/>
+									<circle cx="12" cy="12" r="6"/>
+									<circle cx="12" cy="12" r="2"/>
+								</svg>
 							</div>
-							<div class="space-y-1">
-								<p class="text-sm text-muted-foreground">Goal</p>
-								<p class="font-medium">{capitalize(profile.fitnessGoal)}</p>
-							</div>
-						</div>
-
-						<div class="flex items-center gap-2">
-							<div class="rounded-full bg-primary/10 p-2">
-								<Weight class="h-4 w-4 text-primary" />
-							</div>
-							<div class="space-y-1">
-								<p class="text-sm text-muted-foreground">Weight</p>
-								<p class="font-medium">{profile.weight.value}{profile.weight.unit}</p>
+							<div>
+								<p class="text-xs text-muted-foreground">Fitness Goal</p>
+								<p class="font-medium">${capitalize(profile.fitnessGoal)}</p>
 							</div>
 						</div>
 
-						<div class="flex items-center gap-2">
-							<div class="rounded-full bg-primary/10 p-2">
-								<Ruler class="h-4 w-4 text-primary" />
+						<div class="flex items-center gap-3">
+							<div class="rounded-full bg-primary/10 p-2.5">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM9 4h6v2H9V4z"/>
+								</svg>
 							</div>
-							<div class="space-y-1">
-								<p class="text-sm text-muted-foreground">Height</p>
-								<p class="font-medium">{profile.height.value}{profile.height.unit}</p>
+							<div>
+								<p class="text-xs text-muted-foreground">Weight</p>
+								<p class="font-medium">${profile.weight.value} ${profile.weight.unit}</p>
+							</div>
+						</div>
+
+						<div class="flex items-center gap-3">
+							<div class="rounded-full bg-primary/10 p-2.5">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M19 17h2M19 21V3M12 21V3M5 21V3M3 17h4M3 7h4M17 17h4M17 7h4"/>
+								</svg>
+							</div>
+							<div>
+								<p class="text-xs text-muted-foreground">Height</p>
+								<p class="font-medium">${profile.height.value} ${profile.height.unit}</p>
 							</div>
 						</div>
 					</div>
 
-					<Separator />
-
-					<div class="space-y-2">
-						<div class="flex items-center gap-2">
-							<Calendar class="h-4 w-4 text-primary" />
-							<span class="text-sm">Training {profile.daysPerWeek} days/week</span>
+					<div class="border-t pt-4 space-y-4">
+						<div class="flex items-center gap-3">
+							<div class="rounded-full bg-primary/10 p-2.5">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+									<line x1="16" y1="2" x2="16" y2="6"/>
+									<line x1="8" y1="2" x2="8" y2="6"/>
+									<line x1="3" y1="10" x2="21" y2="10"/>
+								</svg>
+							</div>
+							<div>
+								<p class="text-xs text-muted-foreground">Training Schedule</p>
+								<p class="font-medium">${profile.daysPerWeek} days per week</p>
+							</div>
 						</div>
 						
-						<div class="flex items-start gap-2">
-							<Dumbbell class="h-4 w-4 text-primary mt-1" />
-							<div class="flex flex-wrap gap-1">
-								{#each profile.availableEquipment as equipment}
-									<Badge variant="secondary" class="text-xs">{capitalize(equipment)}</Badge>
-								{/each}
+						<div class="flex items-start gap-3">
+							<div class="rounded-full bg-primary/10 p-2.5">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M3 17h2.5l1-1v-4l-1-1H3v6zM19 17h2v-6h-2.5l-1 1v4l1 1z"/>
+									<path d="M6.5 17h11M6.5 7h11M8 17v-4M16 17v-4M7 7v4M17 7v4"/>
+								</svg>
+							</div>
+							<div class="flex-1">
+								<p class="text-xs text-muted-foreground mb-2">Available Equipment</p>
+								<div class="flex flex-wrap gap-1.5">
+									${profile.availableEquipment
+										.map(
+											equipment => `
+											<span class="inline-flex items-center rounded-full bg-secondary/50 px-2.5 py-0.5 text-xs font-medium">
+												${capitalize(equipment)}
+											</span>`
+										)
+										.join('')}
+								</div>
 							</div>
 						</div>
 					</div>
-				</Card.Content>
-				<Card.Footer class="flex justify-end gap-2">
-					<Button variant="outline" size="sm" onclick={handleUpdateInfo}>
-						<XCircle class="mr-2 h-4 w-4" />
-						Update Info
-					</Button>
-					<Button size="sm" onclick={handleConfirm}>
-						<CheckCircle2 class="mr-2 h-4 w-4" />
-						Confirm
-					</Button>
-				</Card.Footer>
-			</Card.Root>
-		);
+				</div>
+			</div>
+		`;
 	}
 
 	async function fetchOnboardingStatus() {
@@ -403,161 +423,18 @@
 	</Button>
 </div>
 
-<!-- Mobile: Sheet for small screens -->
-<div class="md:hidden">
-	<Sheet.Root bind:open={isOpen}>
-		<Sheet.Content side="bottom" class="h-[85vh] rounded-t-xl border-t-2 border-primary/30">
-			<div class="flex h-full flex-col">
-				<div class="flex items-center justify-between border-b p-3 bg-muted/30">
-					<div class="flex items-center gap-2">
-						<Avatar class="border border-primary/20">
-							<AvatarFallback class="bg-primary text-primary-foreground">
-								AI
-							</AvatarFallback>
-						</Avatar>
-						<div>
-							<h3 class="text-sm font-medium">Fitness Assistant</h3>
-							<p class="text-xs text-muted-foreground">
-								<span class="inline-flex items-center">
-									<span class="mr-1.5 h-2 w-2 rounded-full bg-green-500"></span>
-									Online
-								</span>
-							</p>
-						</div>
-					</div>
-					<Button variant="ghost" size="icon" class="h-8 w-8" onclick={toggleChat}>
-						<X class="h-4 w-4" />
-					</Button>
-				</div>
-
-				<ScrollArea class="flex-1">
-					<div bind:this={scrollContainer} class="px-3 py-4 space-y-6">
-						{#if isCheckingOnboarding}
-							<div class="flex h-40 items-center justify-center">
-								<div class="text-center">
-									<Loader2 class="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-									<p class="text-sm text-muted-foreground">Loading your profile...</p>
-								</div>
-							</div>
-						{:else if !hasCompletedOnboarding}
-							<div class="flex flex-col items-center justify-center p-4 text-center">
-								<Alert.Root class="mb-4">
-									<AlertTriangle class="h-4 w-4 text-amber-500 mb-2" />
-									<Alert.AlertTitle>Onboarding Required</Alert.AlertTitle>
-									<Alert.AlertDescription>
-										To get personalized fitness assistance, we need some information about you and
-										your fitness goals.
-									</Alert.AlertDescription>
-								</Alert.Root>
-								<Button onclick={goToOnboarding} class="mt-2 w-full">Complete Onboarding</Button>
-							</div>
-						{:else}
-							<div class="flex flex-col gap-6">
-								{#each messages as message (message.id)}
-									<div
-										class="flex {message.sender === 'user' ? 'justify-end' : 'justify-start'}"
-										transition:fly={{ y: 10, duration: 150 }}
-									>
-										{#if message.sender === 'bot'}
-											<Avatar class="h-8 w-8 mr-2 flex-shrink-0 self-end mb-1">
-												<AvatarFallback class="bg-primary text-primary-foreground text-xs">
-													AI
-												</AvatarFallback>
-											</Avatar>
-										{/if}
-										
-										<div
-											class="{message.sender === 'user'
-												? 'bg-primary text-primary-foreground rounded-tl-2xl rounded-bl-2xl rounded-tr-sm'
-												: 'bg-muted/80 rounded-tr-2xl rounded-br-2xl rounded-tl-sm'} 
-											max-w-[80%] rounded-lg px-4 py-3 text-sm shadow-sm"
-										>
-											{#if message.sender === 'bot'}
-												{renderMessage(message)}
-											{:else}
-												<p>{message.content}</p>
-											{/if}
-											<span class="mt-1 block text-right text-xs opacity-70">
-												{formatTime(message.timestamp)}
-											</span>
-										</div>
-										
-										{#if message.sender === 'user'}
-											<Avatar class="h-8 w-8 ml-2 flex-shrink-0 self-end mb-1">
-												<AvatarFallback class="bg-secondary text-secondary-foreground text-xs">
-													You
-												</AvatarFallback>
-											</Avatar>
-										{/if}
-									</div>
-								{/each}
-
-								{#if isLoading}
-									<div class="flex justify-start" transition:fade>
-										<Avatar class="h-8 w-8 mr-2 flex-shrink-0 self-end mb-1">
-											<AvatarFallback class="bg-primary text-primary-foreground text-xs">
-												AI
-											</AvatarFallback>
-										</Avatar>
-										<div class="max-w-[80%] rounded-lg bg-muted/80 px-4 py-3 shadow-sm">
-											<div class="flex items-center gap-1">
-												<span class="h-2 w-2 animate-pulse rounded-full bg-primary"></span>
-												<span
-													class="h-2 w-2 animate-pulse rounded-full bg-primary"
-													style="animation-delay: 0.2s"
-												></span>
-												<span
-													class="h-2 w-2 animate-pulse rounded-full bg-primary"
-													style="animation-delay: 0.4s"
-												></span>
-											</div>
-										</div>
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</div>
-				</ScrollArea>
-
-				<div class="border-t p-3 bg-background/80 backdrop-blur">
-					<form onsubmit={sendMessage} class="flex gap-2">
-						<Input
-							bind:value={inputMessage}
-							onkeydown={handleKeyPress}
-							placeholder="Type your message..."
-							class="flex-1 border-primary/20 focus-visible:ring-primary/30"
-							disabled={!hasCompletedOnboarding || isCheckingOnboarding}
-						/>
-						<Button
-							type="submit"
-							size="icon"
-							disabled={!inputMessage.trim() ||
-								isLoading ||
-								!hasCompletedOnboarding ||
-								isCheckingOnboarding}
-							class="bg-primary hover:bg-primary/90"
-						>
-							<Send class="h-4 w-4" />
-						</Button>
-					</form>
-				</div>
-			</div>
-		</Sheet.Content>
-	</Sheet.Root>
-</div>
-
 <!-- Desktop chat window -->
 {#if isOpen && !isMinimized}
 	<div
-		class="fixed bottom-20 right-4 z-50 hidden w-96 flex-col rounded-xl border border-primary/20 bg-card shadow-xl md:flex overflow-hidden"
-		transition:fly={{ y: 20, duration: 200 }}
+		class="fixed bottom-20 right-4 z-50 hidden w-96 flex-col overflow-hidden rounded-xl border border-primary/20 bg-card shadow-xl md:flex"
+		in:fly={{ y: 20, duration: 200 }}
 	>
-		<div class="flex items-center justify-between rounded-t-xl border-b bg-muted/50 p-3 backdrop-blur">
+		<div
+			class="flex items-center justify-between rounded-t-xl border-b bg-muted/50 p-3 backdrop-blur"
+		>
 			<div class="flex items-center gap-2">
 				<Avatar class="border border-primary/20">
-					<AvatarFallback class="bg-primary text-primary-foreground">
-						AI
-					</AvatarFallback>
+					<AvatarFallback class="bg-primary text-primary-foreground">AI</AvatarFallback>
 				</Avatar>
 				<div>
 					<h3 class="text-sm font-medium">Fitness Assistant</h3>
@@ -580,23 +457,23 @@
 		</div>
 
 		<ScrollArea class="h-96 flex-1">
-			<div bind:this={scrollContainer} class="px-4 py-4 space-y-6">
+			<div bind:this={scrollContainer} class="space-y-6 px-4 py-4">
 				{#if isCheckingOnboarding}
 					<div class="flex h-40 items-center justify-center">
 						<div class="text-center">
-							<Loader2 class="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+							<Loader2 class="mx-auto mb-2 h-8 w-8 animate-spin text-primary" />
 							<p class="text-sm text-muted-foreground">Loading your profile...</p>
 						</div>
 					</div>
 				{:else if !hasCompletedOnboarding}
 					<div class="flex flex-col items-center justify-center p-4 text-center">
 						<Alert.Root class="mb-4">
-							<AlertTriangle class="h-4 w-4 text-amber-500 mb-2" />
-							<Alert.AlertTitle>Onboarding Required</Alert.AlertTitle>
-							<Alert.AlertDescription>
+							<AlertTriangle class="mb-2 h-4 w-4 text-amber-500" />
+							<Alert.Title>Onboarding Required</Alert.Title>
+							<Alert.Description>
 								To get personalized fitness assistance, we need some information about you and your
 								fitness goals.
-							</Alert.AlertDescription>
+							</Alert.Description>
 						</Alert.Root>
 						<Button onclick={goToOnboarding} class="mt-2 w-full">Complete Onboarding</Button>
 					</div>
@@ -605,24 +482,24 @@
 						{#each messages as message (message.id)}
 							<div
 								class="flex {message.sender === 'user' ? 'justify-end' : 'justify-start'}"
-								transition:fly={{ y: 10, duration: 150 }}
+								in:fly={{ y: 10, duration: 150 }}
 							>
 								{#if message.sender === 'bot'}
-									<Avatar class="h-8 w-8 mr-2 flex-shrink-0 self-end mb-1">
-										<AvatarFallback class="bg-primary text-primary-foreground text-xs">
+									<Avatar class="mb-1 mr-2 h-8 w-8 flex-shrink-0 self-end">
+										<AvatarFallback class="bg-primary text-xs text-primary-foreground">
 											AI
 										</AvatarFallback>
 									</Avatar>
 								{/if}
-								
+
 								<div
 									class="{message.sender === 'user'
-										? 'bg-primary text-primary-foreground rounded-tl-2xl rounded-bl-2xl rounded-tr-sm'
-										: 'bg-muted/80 rounded-tr-2xl rounded-br-2xl rounded-tl-sm'} 
+										? 'rounded-bl-2xl rounded-tl-2xl rounded-tr-sm bg-primary text-primary-foreground'
+										: 'rounded-br-2xl rounded-tl-sm rounded-tr-2xl bg-muted/80'} 
 									max-w-[85%] rounded-lg px-4 py-3 text-sm shadow-sm"
 								>
 									{#if message.sender === 'bot'}
-										{renderMessage(message)}
+										{@html renderMessage(message)}
 									{:else}
 										<p>{message.content}</p>
 									{/if}
@@ -630,10 +507,10 @@
 										{formatTime(message.timestamp)}
 									</span>
 								</div>
-								
+
 								{#if message.sender === 'user'}
-									<Avatar class="h-8 w-8 ml-2 flex-shrink-0 self-end mb-1">
-										<AvatarFallback class="bg-secondary text-secondary-foreground text-xs">
+									<Avatar class="mb-1 ml-2 h-8 w-8 flex-shrink-0 self-end">
+										<AvatarFallback class="bg-secondary text-xs text-secondary-foreground">
 											You
 										</AvatarFallback>
 									</Avatar>
@@ -642,9 +519,9 @@
 						{/each}
 
 						{#if isLoading}
-							<div class="flex justify-start" transition:fade>
-								<Avatar class="h-8 w-8 mr-2 flex-shrink-0 self-end mb-1">
-									<AvatarFallback class="bg-primary text-primary-foreground text-xs">
+							<div class="flex justify-start" in:fade>
+								<Avatar class="mb-1 mr-2 h-8 w-8 flex-shrink-0 self-end">
+									<AvatarFallback class="bg-primary text-xs text-primary-foreground">
 										AI
 									</AvatarFallback>
 								</Avatar>
@@ -668,7 +545,7 @@
 			</div>
 		</ScrollArea>
 
-		<div class="border-t p-3 bg-background/80 backdrop-blur">
+		<div class="border-t bg-background/80 p-3 backdrop-blur">
 			<form onsubmit={sendMessage} class="flex gap-2">
 				<Input
 					bind:value={inputMessage}
@@ -692,11 +569,12 @@
 		</div>
 	</div>
 {:else if isMinimized}
-	<div
-		class="fixed bottom-20 right-4 z-50 hidden md:block"
-		transition:fly={{ y: 10, duration: 200 }}
-	>
-		<Badge variant="outline" class="cursor-pointer bg-card shadow-md hover:bg-muted transition-colors duration-200" onclick={toggleChat}>
+	<div class="fixed bottom-20 right-4 z-50 hidden md:block" in:fly={{ y: 10, duration: 200 }}>
+		<Badge
+			variant="outline"
+			class="cursor-pointer bg-card shadow-md transition-colors duration-200 hover:bg-muted"
+			onclick={toggleChat}
+		>
 			<span class="flex items-center gap-2">
 				<Bot class="h-3 w-3" />
 				Chat minimized
