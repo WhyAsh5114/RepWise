@@ -104,18 +104,18 @@
 
 		try {
 			console.log(`[CAMERA] Switching to camera: ${deviceId}`);
-			
+
 			// Store previous detection state to restore it later
 			const wasDetectionEnabled = detectionEnabled;
-			
+
 			// Temporarily disable detection while switching cameras
 			if (wasDetectionEnabled) {
 				console.log('[CAMERA] Temporarily disabling detection');
 				detectionEnabled = false;
 				// Allow time for detection to clean up
-				await new Promise(resolve => setTimeout(resolve, 300));
+				await new Promise((resolve) => setTimeout(resolve, 300));
 			}
-			
+
 			// Update selected camera state
 			selectedCamera = deviceId;
 			localVideoPlaying = false;
@@ -161,7 +161,7 @@
 						localPlayerElement.firstChild.remove();
 					}
 				}
-				
+
 				setTimeout(() => playLocalVideo(0), 500);
 			}
 
@@ -169,13 +169,13 @@
 		} catch (err) {
 			console.error('[CAMERA] Error switching camera:', err);
 			toast.error('Failed to switch camera. Please try again.');
-			
+
 			// Try to recover by initializing camera again
 			setTimeout(async () => {
 				try {
 					// Get cameras again
 					await getCameras();
-					
+
 					// If we have a valid deviceId, try again
 					if (selectedCamera && selectedCamera !== deviceId) {
 						// Switch back to previous camera
@@ -526,7 +526,7 @@
 			await agoraClient.publish([localTrack]);
 			console.log('[AGORA] Published high quality video');
 
-				// Clear the local player to avoid stale references
+			// Clear the local player to avoid stale references
 			const localPlayerElement = document.getElementById('local-player');
 			if (localPlayerElement) {
 				while (localPlayerElement.firstChild) {
@@ -648,6 +648,7 @@
 			if (!response.ok) return;
 
 			const data = await response.json();
+			console.log(data);
 
 			// If competition is active in the database but not locally, start it locally
 			if (data.isActive && !isCompetitionActive) {
@@ -696,7 +697,7 @@
 			isCompetitionActive = true;
 			competitionTimeInSeconds = 30; // Reset timer to 30 seconds
 
-				// Update competition status in database
+			// Update competition status in database
 			await fetch('/api/competition/status', {
 				method: 'POST',
 				headers: {
@@ -799,7 +800,6 @@
 				if (competitionTimerInterval) clearInterval(competitionTimerInterval);
 				if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
 				if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
-				if (competitionStatusInterval) clearInterval(competitionStatusInterval);
 
 				// Clean up Agora resources
 				if (localTrack) {
@@ -818,7 +818,6 @@
 			if (competitionTimerInterval) clearInterval(competitionTimerInterval);
 			if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
 			if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
-			if (competitionStatusInterval) clearInterval(competitionStatusInterval);
 
 			// Clean up Agora resources
 			if (localTrack) {
