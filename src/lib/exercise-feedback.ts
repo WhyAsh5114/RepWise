@@ -240,6 +240,9 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 			if (poseData.length < 10)
 				return { feedbacks: ['Not enough data to analyze push up form'], score: 0, reps: 0 };
 
+			// Store original data for rep counting
+			const fullPoseData = [...poseData];
+
 			if (poseData.length > 50) {
 				poseData = poseData.slice(-50);
 			}
@@ -324,24 +327,47 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 				}
 			});
 
-			// Count reps using elbow angle
+			// Count reps using elbow angle from the FULL dataset
 			const repThreshold = 130; // Angle threshold to consider a rep
 			let repCount = 0;
 			let inPushUpPosition = false;
+			const fullElbowAngles: number[] = [];
 
-			for (let i = 0; i < elbowAngles.length; i++) {
+			// Extract elbow angles from the full dataset for rep counting
+			fullPoseData.forEach((frame) => {
+				if (!frame.landmarks || frame.landmarks.length === 0) return;
+				const landmarks = frame.landmarks[0];
+
+				const rightShoulder = landmarks[12];
+				const rightElbow = landmarks[14];
+				const rightWrist = landmarks[16];
+				const leftShoulder = landmarks[11];
+				const leftElbow = landmarks[13];
+				const leftWrist = landmarks[15];
+
+				if (rightShoulder && rightElbow && rightWrist) {
+					const rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
+					fullElbowAngles.push(rightElbowAngle);
+				} else if (leftShoulder && leftElbow && leftWrist) {
+					const leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist);
+					fullElbowAngles.push(leftElbowAngle);
+				}
+			});
+
+			// Count reps using the full elbow angle data
+			for (let i = 0; i < fullElbowAngles.length; i++) {
 				// When the elbow angle gets smaller than threshold, person is in push-up down position
-				if (!inPushUpPosition && elbowAngles[i] < repThreshold) {
+				if (!inPushUpPosition && fullElbowAngles[i] < repThreshold) {
 					inPushUpPosition = true;
 				}
 				// When the elbow angle gets larger than threshold again, person has completed a rep
-				else if (inPushUpPosition && elbowAngles[i] > repThreshold) {
+				else if (inPushUpPosition && fullElbowAngles[i] > repThreshold) {
 					repCount++;
 					inPushUpPosition = false;
 				}
 			}
 
-			// Find min elbow angle to determine push-up depth
+			// Find min elbow angle to determine push-up depth (using truncated data for form analysis)
 			const minElbowAngle = Math.min(...elbowAngles);
 
 			// Determine eccentric/concentric phases
