@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Separator } from '$lib/components/ui/separator';
+	import * as Select from '$lib/components/ui/select';
 	import DetectionComponent from '$lib/detection-component.svelte';
 	import type { IAgoraRTCClient, IAgoraRTCRemoteUser, ICameraVideoTrack } from 'agora-rtc-sdk-ng';
 	import { Clipboard, LogOut, Trophy, UserRound, Users } from 'lucide-svelte';
@@ -737,19 +738,23 @@
 	{:else if isCompetitionActive}
 		<!-- Competition in progress view -->
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-			 <!-- Main content and videos section (takes 2/3 of screen on large displays) -->
+			<!-- Main content and videos section (takes 2/3 of screen on large displays) -->
 			<div class="col-span-1 space-y-4 lg:col-span-2">
 				<Card.Root>
 					<Card.Header>
 						<div class="flex items-center justify-between">
 							<Card.Title class="flex items-center">
 								<Trophy class="mr-2 h-5 w-5 text-yellow-500" />
-								 Competition
+								Competition
 							</Card.Title>
 							<!-- Timer display -->
 							<div class="flex items-center gap-2">
 								<Badge variant="outline" class="text-lg">
-									<span class="font-mono">{Math.floor(competitionTimeInSeconds / 60)}:{(competitionTimeInSeconds % 60).toString().padStart(2, '0')}</span>
+									<span class="font-mono"
+										>{Math.floor(competitionTimeInSeconds / 60)}:{(competitionTimeInSeconds % 60)
+											.toString()
+											.padStart(2, '0')}</span
+									>
 								</Badge>
 							</div>
 						</div>
@@ -758,27 +763,39 @@
 						<!-- Camera selector -->
 						{#if availableCameras.length > 1}
 							<div class="mb-2">
-								<select 
-									class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-									bind:value={selectedCamera}
-									onchange={(e) => switchCamera(e.currentTarget.value)}
-									disabled={isCompetitionActive}
+								<Select.Root
+									value={selectedCamera}
+									type="single"
+									onValueChange={(value) => switchCamera(value)}
 								>
-									{#each availableCameras as camera}
-										<option value={camera.deviceId}>
-											{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
-										</option>
-									{/each}
-								</select>
+									<Select.Trigger class="w-full">
+										{#if selectedCamera}
+											<span>
+												{availableCameras.find((camera) => camera.deviceId === selectedCamera)
+													?.label ||
+													`Camera ${availableCameras.indexOf(availableCameras.find((camera) => camera.deviceId === selectedCamera)!) + 1}`}
+											</span>
+										{:else}
+											<span>Select a camera</span>
+										{/if}
+									</Select.Trigger>
+									<Select.Content>
+										{#each availableCameras as camera}
+											<Select.Item value={camera.deviceId}>
+												{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+											</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
 							</div>
 						{/if}
-						
+
 						<!-- Local stream (full width) -->
 						<div class="relative overflow-hidden rounded-lg bg-muted">
 							{#if detectionEnabled && localTrack}
 								<DetectionComponent
 									timer={0}
-									exerciseName={exerciseName}
+									{exerciseName}
 									{selectedCamera}
 									inputSource="webcam"
 									videoFile={null}
@@ -792,29 +809,27 @@
 							>
 								You (Live)
 							</div>
-							
+
 							<!-- Your score overlay -->
-							<div class="absolute right-2 top-2 rounded-md bg-primary/90 px-3 py-1 text-sm font-bold text-white">
+							<div
+								class="absolute right-2 top-2 rounded-md bg-primary/90 px-3 py-1 text-sm font-bold text-white"
+							>
 								{scores[agoraClient?.uid?.toString() || ''] || 0} reps
 							</div>
 						</div>
-						
+
 						<!-- Instructions -->
 						<div class="rounded-lg bg-muted p-3">
 							<p class="text-sm text-muted-foreground">
-								Perform as many push-ups as you can with proper form. The system will count your reps automatically.
+								Perform as many push-ups as you can with proper form. The system will count your
+								reps automatically.
 							</p>
 						</div>
-						
+
 						<!-- Other participants grid -->
 						<div class="mt-4">
 							<h3 class="mb-2 font-medium">Other Competitors</h3>
-							<ParticipantGrid 
-								{remoteUsers} 
-								{participants} 
-								{scores} 
-								{rankings}
-							/>
+							<ParticipantGrid {remoteUsers} {participants} {scores} {rankings} />
 						</div>
 					</Card.Content>
 				</Card.Root>
@@ -822,11 +837,7 @@
 
 			<!-- Leaderboard and stats section (takes 1/3 of screen on large displays) -->
 			<div class="col-span-1">
-				<Leaderboard 
-					{rankings} 
-					currentUserId={agoraClient?.uid?.toString() || ''} 
-					{scores}
-				/>
+				<Leaderboard {rankings} currentUserId={agoraClient?.uid?.toString() || ''} {scores} />
 			</div>
 		</div>
 	{:else}
@@ -844,22 +855,35 @@
 					<!-- Camera selector for waiting room -->
 					{#if availableCameras.length > 1}
 						<div class="mb-4">
-							<label for="camera-select" class="mb-2 block text-sm font-medium">Select Camera</label>
-							<select 
-								id="camera-select"
-								class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-								bind:value={selectedCamera}
-								onchange={(e) => switchCamera(e.currentTarget.value)}
+							<label for="camera-select" class="mb-2 block text-sm font-medium">Select Camera</label
 							>
-								{#each availableCameras as camera}
-									<option value={camera.deviceId}>
-										{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
-									</option>
-								{/each}
-							</select>
+							<Select.Root
+								type="single"
+								value={selectedCamera}
+								onValueChange={(value) => switchCamera(value)}
+							>
+								<Select.Trigger class="w-full">
+									{#if selectedCamera}
+										<span>
+											{availableCameras.find((camera) => camera.deviceId === selectedCamera)
+												?.label ||
+												`Camera ${availableCameras.indexOf(availableCameras.find((camera) => camera.deviceId === selectedCamera)!) + 1}`}
+										</span>
+									{:else}
+										<span>Select a camera</span>
+									{/if}
+								</Select.Trigger>
+								<Select.Content>
+									{#each availableCameras as camera}
+										<Select.Item value={camera.deviceId}>
+											{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+										</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
 						</div>
 					{/if}
-					
+
 					<div>
 						<div class="mb-2 flex items-center gap-2">
 							<Users size={18} />
@@ -910,9 +934,7 @@
 						</Button>
 
 						{#if participants.length > 1 && isHost()}
-							<Button onclick={startCompetition}>
-								Start 30s Competition
-							</Button>
+							<Button onclick={startCompetition}>Start 30s Competition</Button>
 						{/if}
 					</div>
 
