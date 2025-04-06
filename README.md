@@ -1,3 +1,5 @@
+![Logo](./static/apple-touch-icon-180x180.png)
+
 # RepWise
 
 RepWise is an advanced AI-powered fitness application that helps users achieve their fitness goals through personalized workout plans, real-time form correction, and comprehensive health tracking.
@@ -33,12 +35,14 @@ RepWise is an advanced AI-powered fitness application that helps users achieve t
 ### Installation
 
 1. Clone the repository
+
    ```bash
    git clone https://github.com/yourusername/RepWise.git
    cd RepWise
    ```
 
 2. Install dependencies
+
    ```bash
    npm install
    # or
@@ -48,6 +52,7 @@ RepWise is an advanced AI-powered fitness application that helps users achieve t
 3. Set up environment variables (create a .env file in the root directory)
 
 4. Initialize the database
+
    ```bash
    npx prisma db push
    ```
@@ -67,6 +72,8 @@ Create a `.env` file in the root directory with the following variables:
 DATABASE_URL="your-database-connection-string"
 ELEVENLABS_API_KEY="elevenlabs-api-key"
 GEMINI_API_KEY="gemini-api-key"
+OCR_API_KEY="ocr-api-key"
+PUBLIC_APP_ID="agora-app-id"
 ```
 
 ## Database Schema
