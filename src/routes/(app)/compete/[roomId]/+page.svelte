@@ -479,7 +479,6 @@
 					const hasActiveVideo = remoteUsersList.some((u) => u.videoTrack);
 					if (hasActiveVideo) {
 						console.log(`[AGORA] Auto-joining active competition`);
-						isCompetitionActive = true;
 					}
 				}
 
@@ -636,6 +635,7 @@
 
 	// Function to check competition status from the database
 	async function checkCompetitionStatus() {
+		console.log(!browser, isHost(), isCompetitionActive);
 		if (!browser || isHost() || isCompetitionActive) return;
 
 		// Don't check too frequently (max once per second)
@@ -690,8 +690,6 @@
 
 	// Enhanced competition start that saves status to database
 	async function startCompetition() {
-		if (!browser) return;
-
 		try {
 			console.log('[AGORA] Starting competition');
 			isCompetitionActive = true;
@@ -733,6 +731,7 @@
 		if (competitionTimerInterval) clearInterval(competitionTimerInterval);
 		if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
 		if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
+		if (competitionStatusInterval) clearInterval(competitionStatusInterval);
 
 		// Final sync of scores
 		syncScore().then(() => {
@@ -800,6 +799,7 @@
 				if (competitionTimerInterval) clearInterval(competitionTimerInterval);
 				if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
 				if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
+				if (competitionStatusInterval) clearInterval(competitionStatusInterval);
 
 				// Clean up Agora resources
 				if (localTrack) {
