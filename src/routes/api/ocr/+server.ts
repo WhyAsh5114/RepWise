@@ -1,13 +1,13 @@
-import { OCR_API_KEY } from '$env/static/private';
 import * as mindee from 'mindee';
+import { OCR_API_KEY } from '$env/static/private';
 
 export async function POST({ request }) {
 	try {
 		const formData = await request.formData();
 		const fileData = formData.get('file');
 
-		if (!fileData) {
-			return new Response(JSON.stringify({ error: 'No file uploaded' }), {
+		if (!fileData || !(fileData instanceof Blob)) {
+			return new Response(JSON.stringify({ error: 'No file uploaded or invalid file type' }), {
 				status: 400,
 				headers: { 'Content-Type': 'application/json' }
 			});

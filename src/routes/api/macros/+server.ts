@@ -35,7 +35,6 @@ export async function POST({ request }) {
 
 	const { macros_data } = await request.json();
 
-	console.log(macros_data);
 	try {
 		await prisma.macros.create({
 			data: {
