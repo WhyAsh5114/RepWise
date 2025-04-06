@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
+	import { Input } from '$lib/components/ui/input';
 	import {
 		Table,
 		TableBody,
@@ -13,14 +14,14 @@
 		TableRow
 	} from '$lib/components/ui/table';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Loader2, Camera } from 'lucide-svelte';
+	import { Loader2 } from 'lucide-svelte';
 	import {
 		Sheet,
 		SheetContent,
 		SheetHeader,
 		SheetTitle,
 		SheetDescription,
-		SheetClose
+		SheetFooter
 	} from '$lib/components/ui/sheet';
 
 	let videoEl: HTMLVideoElement;
@@ -32,6 +33,7 @@
 	let loading = $state(false);
 	let sheetOpen = $state(false);
 	let cameraActive = $state(false);
+	let foodName = $state('');
 
 	let parsedNutrition: {
 		calories?: string;
@@ -39,6 +41,19 @@
 		carbs?: string;
 		protein?: string;
 	} = {};
+
+	// Food data object that will be stored and stringified
+	let foodData = $state({
+		category_properties: {
+			'ciqual_food_name:en': ''
+		},
+		nutritionData: {
+			calories: '',
+			fat: '',
+			carbs: '',
+			protein: ''
+		}
+	});
 
 	// Camera selection
 	let selectedCamera = $state<string>('rear');
@@ -127,6 +142,13 @@
 		return match?.[1];
 	}
 
+	// Handle food name change
+	function handleFoodNameChange(event: Event) {
+		const target = event.target as HTMLInputElement;
+		foodName = target.value;
+		foodData.category_properties['ciqual_food_name:en'] = foodName;
+	}
+
 	// Capture image and send to OCR
 	async function captureAndSendOCR() {
 		if (!videoEl || !canvasEl || !stream) return;
@@ -166,14 +188,25 @@
 				parsedNutrition.carbs = extractValue('Total Carbohydrate', result);
 				parsedNutrition.protein = extractValue('Protein', result);
 
+				// Update food data object
+				foodData.nutritionData = {
+					calories: parsedNutrition.calories || '',
+					fat: parsedNutrition.fat || '',
+					carbs: parsedNutrition.carbs || '',
+					protein: parsedNutrition.protein || ''
+				};
+
 				sheetOpen = true;
 
-				let macros_data = {
+				// Convert food data to string for storage
+				const rawData = JSON.stringify(foodData);
+
+				const macros_data = {
 					calories: parsedNutrition.calories,
 					fat: parsedNutrition.fat,
 					carbs: parsedNutrition.carbs,
 					protein: parsedNutrition.protein,
-					rawData: 'macros_data'
+					rawData: rawData
 				};
 
 				const response = await fetch('/api/macros', {
@@ -189,6 +222,54 @@
 				loading = false;
 			}
 		}, 'image/jpeg');
+	}
+
+	// Save food data with name
+	async function saveFoodData() {
+		if (!foodName.trim()) {
+			error = 'Please enter a food name';
+			return;
+		}
+
+		try {
+			// Update food data with name
+			foodData.category_properties['ciqual_food_name:en'] = foodName;
+
+			// Convert food data to string for storage
+			const rawData = JSON.stringify(foodData);
+
+			const macros_data = {
+				calories: parsedNutrition.calories,
+				fat: parsedNutrition.fat,
+				carbs: parsedNutrition.carbs,
+				protein: parsedNutrition.protein,
+				rawData: rawData
+			};
+
+			const response = await fetch('/api/macros', {
+				method: 'POST',
+				body: JSON.stringify({ macros_data })
+			});
+
+			const apiData = await response.json();
+
+			// Close sheet and reset
+			sheetOpen = false;
+			foodName = '';
+		} catch (err) {
+			if (err instanceof Error) error = err.message;
+		}
+	}
+
+	// Get food name from raw data (for display purposes)
+	function getFoodName(rawData: string): string {
+		try {
+			const data = JSON.parse(rawData);
+			const foodName = data.category_properties?.['ciqual_food_name:en'] || 'Unknown Food';
+			return foodName.length > 25 ? foodName.substring(0, 25) + '...' : foodName;
+		} catch (err) {
+			return 'Unknown Food';
+		}
 	}
 </script>
 
@@ -237,6 +318,12 @@
 					Capture & Process
 				{/if}
 			</Button>
+
+			{#if error}
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
+			{/if}
 		</div>
 	</CardContent>
 </Card>
@@ -248,7 +335,18 @@
 			<SheetDescription>Extracted data from nutrition label</SheetDescription>
 		</SheetHeader>
 
-		<div class="py-6">
+		<div class="space-y-6 py-6">
+			<div class="space-y-2">
+				<Label for="food-name">Food Name</Label>
+				<Input
+					id="food-name"
+					type="text"
+					placeholder="Enter food name"
+					value={foodName}
+					oninput={handleFoodNameChange}
+				/>
+			</div>
+
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -276,5 +374,9 @@
 				</TableBody>
 			</Table>
 		</div>
+
+		<SheetFooter>
+			<Button onclick={saveFoodData} class="w-full">Save Food Data</Button>
+		</SheetFooter>
 	</SheetContent>
 </Sheet>
