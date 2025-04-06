@@ -7,6 +7,9 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import { Button } from '$lib/components/ui/button';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Send, X, Minimize2, Loader2, AlertTriangle, Bot } from 'lucide-svelte';
 
 	type Message = {
@@ -14,6 +17,8 @@
 		content: string;
 		timestamp: Date;
 		sender: 'user' | 'bot';
+		sender: 'user' | 'bot';
+		timestamp: Date;
 	};
 
 	type OnboardingModel = {
@@ -74,6 +79,9 @@
 
 	let workoutplanData = $state<WorkoutPlan | null>(null);
 	$inspect(workoutplanData);
+	let hasCompletedOnboarding = $state(false);
+	let isCheckingOnboarding = $state(true);
+	let userOnboardingData = $state<OnboardingModel | null>(null);
 
 	let messages = $state<Message[]>([
 		{
@@ -130,6 +138,11 @@
         ${ProfileCard(formatOnboardingDataToProfile(userOnboardingData))}
       </div>
     `;
+				<div class="space-y-4">
+					<p>${message.content}</p>
+					${ProfileCard(formatOnboardingDataToProfile(userOnboardingData))}
+				</div>
+			`;
 		} else if (message.content.includes("Here's your personalized workout plan")) {
 			try {
 				const startIndex = message.content.indexOf('{');
@@ -144,6 +157,15 @@
 
 				// Return just the intro text, the component will be rendered separately
 				return `<p>Here's your personalized workout plan based on your profile:</p>`;
+				const workoutPlanJson = message.content.slice(startIndex, endIndex);
+				const workoutPlan = JSON.parse(workoutPlanJson);
+
+				return `
+					<div class="space-y-4">
+						<p>Here's your personalized workout plan based on your profile:</p>
+						<WorkoutPlanCard workoutPlan={workoutPlan.workoutPlan} />
+					</div>
+				`;
 			} catch (error) {
 				console.error('Error parsing workout plan:', error);
 				return message.content;
@@ -292,6 +314,7 @@
       </div>
     </div>
   `;
+		return `<p>${message.content}</p>`;
 	}
 
 	function ProfileCard(profile: UserProfile) {
@@ -506,6 +529,56 @@
 			console.error('Error generating workout plan:', error);
 			return 'I apologize, but I encountered an error while creating your workout plan. Would you like to try again?';
 		}
+		const lowerMessage = message.toLowerCase();
+
+		// Handle workout plan request
+		if (lowerMessage.includes('workout') || lowerMessage.includes('exercise plan')) {
+			try {
+				const userData = {
+					fitness_level: userOnboardingData?.fitnessLevel || 'intermediate',
+					age: userOnboardingData?.age || 35,
+					height: userOnboardingData?.height || 175,
+					weight: userOnboardingData?.weight || 75,
+					days_per_week: userOnboardingData?.daysPerWeek || 4,
+					injuries: userOnboardingData?.injuries ? [userOnboardingData.injuries] : [],
+					goals: [userOnboardingData?.fitnessGoal || 'overall fitness']
+				};
+
+				const response = await fetch('/api/workout-plan', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(userData)
+				});
+
+				if (!response.ok) {
+					throw new Error('Failed to generate workout plan');
+				}
+
+				const data = await response.json();
+				const workoutPlan = data.workoutPlan;
+
+				// Format the workout plan response
+				return `Here's your personalized workout plan based on your profile:
+				
+${JSON.stringify(workoutPlan, null, 2)}
+
+Would you like me to explain any part of this workout plan in more detail?`;
+			} catch (error) {
+				console.error('Error generating workout plan:', error);
+				return 'I apologize, but I encountered an error while creating your workout plan. Would you like to try again?';
+			}
+		}
+
+		// Handle existing responses
+		if (lowerMessage.includes('yes') && lowerMessage.includes('correct')) {
+			return "Great! I'll use this information to provide personalized fitness advice. Would you like me to create a workout plan for you?";
+		}
+
+		// ...rest of existing conditions...
+
+		return `I understand you're asking about "${message}". Would you like me to create a personalized workout plan based on your fitness profile?`;
 	}
 
 	async function sendMessage() {
@@ -616,6 +689,7 @@
 {#if isOpen && !isMinimized}
 	<div
 		class="fixed bottom-20 right-4 z-50 w-96 flex-col overflow-hidden rounded-xl border border-primary/20 bg-card shadow-xl md:flex"
+		class="fixed bottom-20 right-4 z-50 hidden w-96 flex-col overflow-hidden rounded-xl border border-primary/20 bg-card shadow-xl md:flex"
 		in:fly={{ y: 20, duration: 200 }}
 	>
 		<div
@@ -738,6 +812,94 @@
 				</div>
 			</div>
 		</div>
+		<ScrollArea class="h-96 flex-1">
+			<div bind:this={scrollContainer} class="space-y-6 px-4 py-4">
+				{#if isCheckingOnboarding}
+					<div class="flex h-40 items-center justify-center">
+						<div class="text-center">
+							<Loader2 class="mx-auto mb-2 h-8 w-8 animate-spin text-primary" />
+							<p class="text-sm text-muted-foreground">Loading your profile...</p>
+						</div>
+					</div>
+				{:else if !hasCompletedOnboarding}
+					<div class="flex flex-col items-center justify-center p-4 text-center">
+						<Alert.Root class="mb-4">
+							<AlertTriangle class="mb-2 h-4 w-4 text-amber-500" />
+							<Alert.Title>Onboarding Required</Alert.Title>
+							<Alert.Description>
+								To get personalized fitness assistance, we need some information about you and your
+								fitness goals.
+							</Alert.Description>
+						</Alert.Root>
+						<Button onclick={goToOnboarding} class="mt-2 w-full">Complete Onboarding</Button>
+					</div>
+				{:else}
+					<div class="flex flex-col gap-6">
+						{#each messages as message (message.id)}
+							<div
+								class="flex {message.sender === 'user' ? 'justify-end' : 'justify-start'}"
+								in:fly={{ y: 10, duration: 150 }}
+							>
+								{#if message.sender === 'bot'}
+									<Avatar class="mb-1 mr-2 h-8 w-8 flex-shrink-0 self-end">
+										<AvatarFallback class="bg-primary text-xs text-primary-foreground">
+											AI
+										</AvatarFallback>
+									</Avatar>
+								{/if}
+
+								<div
+									class="{message.sender === 'user'
+										? 'rounded-bl-2xl rounded-tl-2xl rounded-tr-sm bg-primary text-primary-foreground'
+										: 'rounded-br-2xl rounded-tl-sm rounded-tr-2xl bg-muted/80'} 
+									max-w-[85%] rounded-lg px-4 py-3 text-sm shadow-sm"
+								>
+									{#if message.sender === 'bot'}
+										{@html renderMessage(message)}
+									{:else}
+										<p>{message.content}</p>
+									{/if}
+									<span class="mt-1 block text-right text-xs opacity-70">
+										{formatTime(message.timestamp)}
+									</span>
+								</div>
+
+								{#if message.sender === 'user'}
+									<Avatar class="mb-1 ml-2 h-8 w-8 flex-shrink-0 self-end">
+										<AvatarFallback class="bg-secondary text-xs text-secondary-foreground">
+											You
+										</AvatarFallback>
+									</Avatar>
+								{/if}
+							</div>
+						{/each}
+
+						{#if isLoading}
+							<div class="flex justify-start" in:fade>
+								<Avatar class="mb-1 mr-2 h-8 w-8 flex-shrink-0 self-end">
+									<AvatarFallback class="bg-primary text-xs text-primary-foreground">
+										AI
+									</AvatarFallback>
+								</Avatar>
+								<div class="max-w-[80%] rounded-lg bg-muted/80 px-4 py-3 shadow-sm">
+									<div class="flex items-center gap-1">
+										<span class="h-2 w-2 animate-pulse rounded-full bg-primary"></span>
+										<span
+											class="h-2 w-2 animate-pulse rounded-full bg-primary"
+											style="animation-delay: 0.2s"
+										></span>
+										<span
+											class="h-2 w-2 animate-pulse rounded-full bg-primary"
+											style="animation-delay: 0.4s"
+										></span>
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</ScrollArea>
 
 		<div class="border-t bg-background/80 p-3 backdrop-blur">
 			<form onsubmit={sendMessage} class="flex gap-2">

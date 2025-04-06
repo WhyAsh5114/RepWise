@@ -2,7 +2,11 @@ import type { PoseLandmarkerResult } from '@mediapipe/tasks-vision';
 
 type ExerciseFeedback = {
 	name: string;
-	feedbackFunction: (poseData: PoseLandmarkerResult[]) => { feedbacks: string[]; score: number };
+	feedbackFunction: (poseData: PoseLandmarkerResult[]) => {
+		feedbacks: string[];
+		score: number;
+		reps: number;
+	};
 };
 
 // Helper function to calculate angle between three points
@@ -26,8 +30,12 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// Skip if not enough data points
 			if (poseData.length < 10)
-				return { feedbacks: ['Not enough data to analyze squat form'], score: 0 };
+				return { feedbacks: ['Not enough data to analyze squat form'], score: 0, reps: 0 };
 
+			// Store original data for rep counting
+			const fullPoseData = [...poseData];
+
+			// Truncate data for form analysis only
 			if (poseData.length > 50) {
 				poseData = poseData.slice(-50);
 			}
@@ -40,7 +48,6 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			poseData.forEach((frame) => {
 				if (!frame.landmarks || frame.landmarks.length === 0) return;
-
 				const landmarks = frame.landmarks[0];
 
 				// Get knee angle (right side)
@@ -94,7 +101,39 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 				}
 			});
 
-			// Find min knee angle to determine squat depth
+			// Count reps using knee angle from the FULL dataset
+			const repThreshold = 120; // Angle threshold to consider a rep
+			let repCount = 0;
+			let inSquatPosition = false;
+			const fullKneeAngles: number[] = [];
+
+			// Extract knee angles from the full dataset for rep counting
+			fullPoseData.forEach((frame) => {
+				if (!frame.landmarks || frame.landmarks.length === 0) return;
+				const landmarks = frame.landmarks[0];
+				const rightHip = landmarks[24];
+				const rightKnee = landmarks[26];
+				const rightAnkle = landmarks[28];
+
+				if (rightHip && rightKnee && rightAnkle) {
+					fullKneeAngles.push(calculateAngle(rightHip, rightKnee, rightAnkle));
+				}
+			});
+
+			// Count reps using the full knee angle data
+			for (let i = 0; i < fullKneeAngles.length; i++) {
+				// When the knee angle gets smaller than threshold, person is in squat position
+				if (!inSquatPosition && fullKneeAngles[i] < repThreshold) {
+					inSquatPosition = true;
+				}
+				// When the knee angle gets larger than threshold again, person has completed a rep
+				else if (inSquatPosition && fullKneeAngles[i] > repThreshold) {
+					repCount++;
+					inSquatPosition = false;
+				}
+			}
+
+			// Find min knee angle to determine squat depth (using truncated data)
 			const minKneeAngle = Math.min(...kneeAngles);
 
 			// Determine eccentric/concentric phases
@@ -185,9 +224,9 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// Return combined feedback or default message if no feedback
 			if (allFeedback.length > 0) {
-				return { feedbacks: allFeedback, score: totalScore };
+				return { feedbacks: allFeedback, score: totalScore, reps: repCount };
 			} else {
-				return { feedbacks: ['Unable to properly analyze squat form'], score: 0 };
+				return { feedbacks: ['Unable to properly analyze squat form'], score: 0, reps: 0 };
 			}
 		}
 	},
@@ -199,7 +238,7 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// Skip if not enough data points
 			if (poseData.length < 10)
-				return { feedbacks: ['Not enough data to analyze push up form'], score: 0 };
+				return { feedbacks: ['Not enough data to analyze push up form'], score: 0, reps: 0 };
 
 			if (poseData.length > 50) {
 				poseData = poseData.slice(-50);
@@ -213,7 +252,6 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			poseData.forEach((frame) => {
 				if (!frame.landmarks || frame.landmarks.length === 0) return;
-
 				const landmarks = frame.landmarks[0];
 
 				// Get key points for push-up analysis
@@ -279,11 +317,29 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 					wristShoulderDistances.push(distance);
 				} else if (leftShoulder && leftWrist) {
 					const distance = Math.sqrt(
-						Math.pow(leftShoulder.x - leftWrist.x, 2) + Math.pow(leftShoulder.z - leftWrist.z, 2)
+						Math.pow(leftShoulder.x - leftWrist.x, 2) +
+							Math.pow(leftShoulder.z - leftWrist.z, 2)
 					);
 					wristShoulderDistances.push(distance);
 				}
 			});
+
+			// Count reps using elbow angle
+			const repThreshold = 130; // Angle threshold to consider a rep
+			let repCount = 0;
+			let inPushUpPosition = false;
+
+			for (let i = 0; i < elbowAngles.length; i++) {
+				// When the elbow angle gets smaller than threshold, person is in push-up down position
+				if (!inPushUpPosition && elbowAngles[i] < repThreshold) {
+					inPushUpPosition = true;
+				}
+				// When the elbow angle gets larger than threshold again, person has completed a rep
+				else if (inPushUpPosition && elbowAngles[i] > repThreshold) {
+					repCount++;
+					inPushUpPosition = false;
+				}
+			}
 
 			// Find min elbow angle to determine push-up depth
 			const minElbowAngle = Math.min(...elbowAngles);
@@ -378,9 +434,9 @@ export const exerciseFeedbacks: ExerciseFeedback[] = [
 
 			// Return combined feedback or default message if no feedback
 			if (allFeedback.length > 0) {
-				return { feedbacks: allFeedback, score: totalScore };
+				return { feedbacks: allFeedback, score: totalScore, reps: repCount };
 			} else {
-				return { feedbacks: ['Unable to properly analyze push-up form'], score: 0 };
+				return { feedbacks: ['Unable to properly analyze push-up form'], score: 0, reps: 0 };
 			}
 		}
 	}

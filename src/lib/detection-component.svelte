@@ -5,12 +5,20 @@
 		PoseLandmarker,
 		type PoseLandmarkerResult
 	} from '@mediapipe/tasks-vision';
-	import { LoaderCircle } from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { LoaderCircle, Activity } from 'lucide-svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import Button from './components/ui/button/button.svelte';
+	import Card from './components/ui/card/card.svelte';
+	import CardContent from './components/ui/card/card-content.svelte';
+	import CardHeader from './components/ui/card/card-header.svelte';
+	import CardTitle from './components/ui/card/card-title.svelte';
+	import Progress from './components/ui/progress/progress.svelte';
 	import { exerciseFeedbacks } from './exercise-feedback';
 	import { cn } from './utils';
+
+	// Setup event dispatcher for rep count updates
+	const dispatch = createEventDispatcher();
 
 	type PropsType = {
 		timer: number;
@@ -31,6 +39,7 @@
 	let poseSequence = $state<PoseLandmarkerResult[]>();
 	let feedbackMessages = $state<string[]>([]);
 	let feedbackScore = $state<number>(0);
+	let repCount = $state<number>(0);
 	let scoreHistory = $state<number[]>([]);
 	let lastVoiceFeedbackTime = 0;
 
@@ -105,6 +114,13 @@
 	$effect(() => {
 		if (feedbackMessages.length > 0) {
 			speakLatestFeedback();
+		}
+	});
+
+	// Update repCount to dispatch events when it changes
+	$effect(() => {
+		if (repCount > 0) {
+			dispatch('repcount', repCount);
 		}
 	});
 
@@ -209,6 +225,7 @@
 			if (feedback) {
 				const result = feedback.feedbackFunction(poseSequence);
 				feedbackMessages = result.feedbacks;
+				repCount = result.reps; // Update final rep count
 
 				// Add final score to history and calculate average
 				scoreHistory.push(result.score);
@@ -222,6 +239,7 @@
 		poseSequence = [];
 		feedbackMessages = [];
 		feedbackScore = 0;
+		repCount = 0;
 		scoreHistory = [];
 		lastVoiceFeedbackTime = 0;
 
@@ -259,6 +277,12 @@
 							if (feedback) {
 								const result = feedback.feedbackFunction(poseSequence);
 								feedbackMessages = result.feedbacks;
+
+								// Update rep count and dispatch the event
+								if (repCount !== result.reps) {
+									repCount = result.reps;
+									dispatch('repcount', repCount);
+								}
 
 								// Add score to history and update with average
 								scoreHistory.push(result.score);
@@ -313,38 +337,79 @@
 	</div>
 {/if}
 
-<div class={cn('grid gap-2', { hidden: timer !== 0 })}>
-	<video
-		class={cn('col-start-1 row-start-1 w-full', { hidden: !videoSrc && !stream })}
-		muted
-		bind:this={videoElement}
-		src={videoSrc}
-		autoplay={inputSource === 'webcam'}
-		playsinline
-	>
-		<track kind="captions" />
-	</video>
-	<canvas
-		bind:this={canvasElement}
-		class={cn('col-start-1 row-start-1 w-full', { hidden: !videoSrc && !stream })}
-	></canvas>
+<div class={cn('grid gap-4', { hidden: timer !== 0 })}>
+	<div class="relative">
+		<video
+			class={cn('col-start-1 row-start-1 w-full rounded-lg', { hidden: !videoSrc && !stream })}
+			muted
+			bind:this={videoElement}
+			src={videoSrc}
+			autoplay={inputSource === 'webcam'}
+			playsinline
+		>
+			<track kind="captions" />
+		</video>
+		<canvas
+			bind:this={canvasElement}
+			class={cn('col-start-1 row-start-1 absolute top-0 left-0 w-full h-full rounded-lg', { hidden: !videoSrc && !stream })}
+		></canvas>
+	</div>
 
 	{#if feedbackMessages.length > 0}
-		<div class="my-4 rounded-md border bg-muted p-4">
-			<div class="flex justify-between items-center mb-2">
-				<h3 class="text-lg font-semibold">Form Feedback:</h3>
-				<div class="flex flex-col items-end">
-					<div class="text-xl font-bold">Score: {feedbackScore}/100</div>
-					<div class="text-xs text-muted-foreground">Based on {scoreHistory.length} measurement{scoreHistory.length !== 1 ? 's' : ''}</div>
-				</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<Card class="h-80">
+					<CardHeader class="pb-2">
+						<CardTitle class="flex justify-between items-center">
+							<span>Form Analysis</span>
+							<span class="text-sm font-normal text-muted-foreground">{scoreHistory.length} measurement{scoreHistory.length !== 1 ? 's' : ''}</span>
+						</CardTitle>
+					</CardHeader>
+					<CardContent class="overflow-y-auto max-h-[calc(100%-60px)]">
+						<div class="mb-4">
+							<div class="flex justify-between items-center text-sm mb-1">
+								<span>Score</span>
+								<span class="font-semibold">{feedbackScore}/100</span>
+							</div>
+							<Progress value={feedbackScore} max={100} class="h-2" />
+						</div>
+						
+						<ul class="space-y-1 text-sm">
+							{#each feedbackMessages as message}
+								<li class="flex gap-2 items-start">
+									<span class="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
+										<Activity class="h-3 w-3" />
+									</span>
+									<span>{message}</span>
+								</li>
+							{/each}
+						</ul>
+					</CardContent>
+				</Card>
+				
+				<Card class="h-80">
+					<CardHeader class="pb-2">
+						<CardTitle class="flex justify-between items-center">
+							<span>Workout Stats</span>
+							<span class="text-sm font-normal text-muted-foreground">{exerciseName}</span>
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div class="flex flex-col items-center justify-center p-6">
+							<div class="text-7xl font-bold text-primary mb-2">{repCount}</div>
+							<div class="text-muted-foreground text-sm">Repetitions completed</div>
+							
+							<div class="w-full mt-6">
+								<div class="flex justify-between items-center text-sm mb-1">
+									<span>Progress</span>
+									<span class="font-semibold">{repCount} {repCount === 1 ? 'rep' : 'reps'}</span>
+								</div>
+								<Progress value={repCount} max={Math.max(10, repCount + 2)} class="h-2" />
+							</div>
+						</div>
+					</CardContent>
+				</Card>
 			</div>
-			<ul class="list-disc space-y-1 pl-5">
-				{#each feedbackMessages as message}
-					<li>{message}</li>
-				{/each}
-			</ul>
-		</div>
 	{/if}
 
-	<Button onclick={stopAnalysis}>Stop analysis</Button>
+	<Button onclick={stopAnalysis} variant="destructive">Stop Analysis</Button>
 </div>
