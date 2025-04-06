@@ -129,3 +129,12 @@ model CompetitionScore {
   
   @@unique([userId, roomId])
 }
+
+model CompetitionRoom {
+  id        String   @id
+  isActive  Boolean  @default(false)
+  startTime DateTime?
+  endTime   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

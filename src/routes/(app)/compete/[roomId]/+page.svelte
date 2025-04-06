@@ -74,6 +74,11 @@
 	let scoreUpdateInterval: ReturnType<typeof setInterval>;
 	let scoresRefreshInterval: ReturnType<typeof setInterval>;
 
+	// Add these new state variables
+	let competitionStatusInterval: ReturnType<typeof setInterval>;
+	let lastCheckedCompetitionStatus = $state<number>(0);
+	let roomCompetitionActive = $state<boolean>(false);
+
 	// Enumerate available cameras
 	async function getCameras() {
 		if (!browser) return;
@@ -629,7 +634,60 @@
 		}
 	}
 
-	// Start competition with timer
+	// Function to check competition status from the database
+	async function checkCompetitionStatus() {
+		if (!browser || isHost || isCompetitionActive) return;
+
+		// Don't check too frequently (max once per second)
+		const now = Date.now();
+		if (now - lastCheckedCompetitionStatus < 1000) return;
+		lastCheckedCompetitionStatus = now;
+
+		try {
+			const response = await fetch(`/api/competition/status/${roomId}`);
+			if (!response.ok) return;
+
+			const data = await response.json();
+
+			// If competition is active in the database but not locally, start it locally
+			if (data.isActive && !isCompetitionActive) {
+				console.log('[COMPETITION] Competition started by host, joining...');
+				isCompetitionActive = true;
+				competitionTimeInSeconds = data.timeRemaining || 30;
+
+				// Start timers
+				startCompetitionTimers();
+
+				// Enable pose detection
+				startVideoStream();
+
+				toast.success('Competition started by host!');
+			}
+		} catch (err) {
+			console.error('Error checking competition status:', err);
+		}
+	}
+
+	// Start all the timers needed for competition
+	function startCompetitionTimers() {
+		// Start the countdown timer
+		competitionTimerInterval = setInterval(() => {
+			if (competitionTimeInSeconds > 0) {
+				competitionTimeInSeconds--;
+			} else {
+				// Time's up, end the competition
+				endCompetition();
+			}
+		}, 1000);
+
+		// Start score sync interval (every second)
+		scoreUpdateInterval = setInterval(syncScore, 1000);
+
+		// Start scores refresh interval (every second)
+		scoresRefreshInterval = setInterval(fetchScores, 1000);
+	}
+
+	// Enhanced competition start that saves status to database
 	async function startCompetition() {
 		if (!browser) return;
 
@@ -638,24 +696,22 @@
 			isCompetitionActive = true;
 			competitionTimeInSeconds = 30; // Reset timer to 30 seconds
 
-			// Start the countdown timer
-			competitionTimerInterval = setInterval(() => {
-				if (competitionTimeInSeconds > 0) {
-					competitionTimeInSeconds--;
-				} else {
-					// Time's up, end the competition
-					endCompetition();
-				}
-			}, 1000);
+				// Update competition status in database
+			await fetch('/api/competition/status', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					roomId,
+					isActive: true,
+					startTime: new Date().toISOString(),
+					duration: 30 // 30 seconds competition
+				})
+			});
 
-			// Start score sync interval (every second)
-			scoreUpdateInterval = setInterval(syncScore, 1000);
-
-			// Start scores refresh interval (every second)
-			scoresRefreshInterval = setInterval(fetchScores, 1000);
-
-			// Notify other users that competition is starting
-			console.log('[AGORA] Notifying others that competition is starting');
+			// Start all timers
+			startCompetitionTimers();
 
 			// Start video stream
 			await startVideoStream();
@@ -732,6 +788,9 @@
 				.getUserMedia({ video: true })
 				.then(() => getCameras())
 				.catch((err) => console.error('[CAMERA] Permission error:', err));
+
+			// Start polling for competition status
+			competitionStatusInterval = setInterval(checkCompetitionStatus, 1000);
 		}
 
 		return () => {
@@ -740,6 +799,7 @@
 				if (competitionTimerInterval) clearInterval(competitionTimerInterval);
 				if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
 				if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
+				if (competitionStatusInterval) clearInterval(competitionStatusInterval);
 
 				// Clean up Agora resources
 				if (localTrack) {
@@ -758,6 +818,7 @@
 			if (competitionTimerInterval) clearInterval(competitionTimerInterval);
 			if (scoreUpdateInterval) clearInterval(scoreUpdateInterval);
 			if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
+			if (competitionStatusInterval) clearInterval(competitionStatusInterval);
 
 			// Clean up Agora resources
 			if (localTrack) {
