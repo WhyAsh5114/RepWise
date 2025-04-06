@@ -6,7 +6,6 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { Send, X, Minimize2, Loader2, AlertTriangle, Bot } from 'lucide-svelte';
 
@@ -464,27 +463,26 @@
 	async function getBotResponse(message: string): Promise<string> {
 		try {
 			const userData = {
-				message: message,
-				// fitnessLevel: userOnboardingData?.fitnessLevel || 'intermediate',
-				// fitnessGoal: userOnboardingData?.fitnessGoal || 'muscle gain',
-				// age: userOnboardingData?.age || 32,
-				// gender: userOnboardingData?.gender || 'male',
-				// weight: {
-				// 	value: userOnboardingData?.weight || 75,
-				// 	unit: 'kg'
-				// },
-				// height: {
-				// 	value: userOnboardingData?.height || 180,
-				// 	unit: 'cm'
-				// },
-				// daysPerWeek: userOnboardingData?.daysPerWeek || 4,
-				// availableEquipment: userOnboardingData?.availableEquipment || [
-				// 	'dumbbells',
-				// 	'barbell',
-				// 	'bench',
-				// 	'pull-up bar',
-				// 	'resistance bands'
-				// ]
+				fitnessLevel: userOnboardingData?.fitnessLevel || 'intermediate',
+				fitnessGoal: userOnboardingData?.fitnessGoal || 'muscle gain',
+				age: userOnboardingData?.age || 32,
+				gender: userOnboardingData?.gender || 'male',
+				weight: {
+					value: userOnboardingData?.weight || 75,
+					unit: 'kg'
+				},
+				height: {
+					value: userOnboardingData?.height || 180,
+					unit: 'cm'
+				},
+				daysPerWeek: userOnboardingData?.daysPerWeek || 4,
+				availableEquipment: userOnboardingData?.availableEquipment || [
+					'dumbbells',
+					'barbell',
+					'bench',
+					'pull-up bar',
+					'resistance bands'
+				]
 			};
 
 			// Call the workout plan API
