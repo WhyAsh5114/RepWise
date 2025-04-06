@@ -93,37 +93,93 @@
 		}
 	}
 
-	// Switch to selected camera
+	// Switch to selected camera - improved to handle MediaPipe and Agora properly
 	async function switchCamera(deviceId: string) {
 		if (!browser || !agoraClient) return;
 
 		try {
-			selectedCamera = deviceId;
 			console.log(`[CAMERA] Switching to camera: ${deviceId}`);
+			
+			// Store previous detection state to restore it later
+			const wasDetectionEnabled = detectionEnabled;
+			
+			// Temporarily disable detection while switching cameras
+			if (wasDetectionEnabled) {
+				console.log('[CAMERA] Temporarily disabling detection');
+				detectionEnabled = false;
+				// Allow time for detection to clean up
+				await new Promise(resolve => setTimeout(resolve, 300));
+			}
+			
+			// Update selected camera state
+			selectedCamera = deviceId;
+			localVideoPlaying = false;
 
 			// Close existing track if it exists
 			if (localTrack) {
-				await agoraClient.unpublish([localTrack]);
-				localTrack.close();
+				console.log('[CAMERA] Unpublishing existing track');
+				try {
+					await agoraClient.unpublish([localTrack]);
+					localTrack.close();
+				} catch (err) {
+					console.error('[CAMERA] Error unpublishing track:', err);
+				}
 			}
 
 			// Create track with selected device
 			const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+			console.log('[CAMERA] Creating new track with deviceId:', deviceId);
 			localTrack = await AgoraRTC.createCameraVideoTrack({
 				cameraId: deviceId,
 				encoderConfig: isCompetitionActive ? 'high' : 'standard'
 			});
 
 			// Publish the new track
+			console.log('[CAMERA] Publishing new track');
 			await agoraClient.publish([localTrack]);
 
-			// Play local video
-			setTimeout(() => playLocalVideo(0), 300);
+			// If we were in detection mode, re-enable it after a delay
+			if (wasDetectionEnabled) {
+				console.log('[CAMERA] Re-enabling detection');
+				// Give time for the track to be properly published
+				setTimeout(() => {
+					detectionEnabled = true;
+					localVideoPlaying = true;
+				}, 500);
+			} else {
+				// Play local video as normal
+				console.log('[CAMERA] Playing local video normally');
+				// Need to clear and recreate the player element to avoid issues
+				const localPlayerElement = document.getElementById('local-player');
+				if (localPlayerElement) {
+					while (localPlayerElement.firstChild) {
+						localPlayerElement.firstChild.remove();
+					}
+				}
+				
+				setTimeout(() => playLocalVideo(0), 500);
+			}
 
 			toast.success('Camera switched successfully');
 		} catch (err) {
 			console.error('[CAMERA] Error switching camera:', err);
-			toast.error('Failed to switch camera');
+			toast.error('Failed to switch camera. Please try again.');
+			
+			// Try to recover by initializing camera again
+			setTimeout(async () => {
+				try {
+					// Get cameras again
+					await getCameras();
+					
+					// If we have a valid deviceId, try again
+					if (selectedCamera && selectedCamera !== deviceId) {
+						// Switch back to previous camera
+						await switchCamera(selectedCamera);
+					}
+				} catch (recoveryErr) {
+					console.error('[CAMERA] Recovery failed:', recoveryErr);
+				}
+			}, 1000);
 		}
 	}
 
@@ -441,8 +497,7 @@
 		}
 	}
 
-	// Start the video stream when competition starts -
-	// Now just publishes a higher quality stream
+	// Start the video stream when competition starts - improved to handle camera switching
 	async function startVideoStream() {
 		if (!browser || !agoraClient) return;
 
@@ -466,12 +521,20 @@
 			await agoraClient.publish([localTrack]);
 			console.log('[AGORA] Published high quality video');
 
-			// Enable detection after local track is ready
-			detectionEnabled = true;
+				// Clear the local player to avoid stale references
+			const localPlayerElement = document.getElementById('local-player');
+			if (localPlayerElement) {
+				while (localPlayerElement.firstChild) {
+					localPlayerElement.firstChild.remove();
+				}
+			}
 
-			// Instead of playing in local-player, we'll handle this through the detection component
-			// but we still set this flag for state management
-			localVideoPlaying = true;
+			// Enable detection after local track is ready
+			// Use setTimeout to ensure DOM is ready
+			setTimeout(() => {
+				detectionEnabled = true;
+				localVideoPlaying = true;
+			}, 500);
 
 			toast.success('Joined video stream!');
 		} catch (err) {
