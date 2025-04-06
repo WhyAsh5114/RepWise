@@ -80,7 +80,7 @@
 
 		try {
 			const devices = await navigator.mediaDevices.enumerateDevices();
-			availableCameras = devices.filter(device => device.kind === 'videoinput');
+			availableCameras = devices.filter((device) => device.kind === 'videoinput');
 
 			// Set default camera if none selected yet
 			if (availableCameras.length > 0 && !selectedCamera) {
@@ -552,7 +552,7 @@
 			});
 
 			// Only update scores for remote users to prevent overriding local score
-			Object.keys(fetchedScores).forEach(userId => {
+			Object.keys(fetchedScores).forEach((userId) => {
 				if (userId !== agoraClient?.uid?.toString()) {
 					scores[userId] = fetchedScores[userId];
 				}
@@ -618,16 +618,16 @@
 		syncScore().then(() => {
 			// Determine current user's position
 			const currentUserId = agoraClient?.uid?.toString() || '';
-			const userPosition = rankings.findIndex(r => r.userId === currentUserId) + 1;
+			const userPosition = rankings.findIndex((r) => r.userId === currentUserId) + 1;
 			const userScore = scores[currentUserId] || 0;
-			
+
 			// Create URL with search parameters
 			const searchParams = new URLSearchParams();
 			searchParams.set('position', userPosition.toString());
 			searchParams.set('score', userScore.toString());
 			searchParams.set('total', rankings.length.toString());
 			searchParams.set('roomId', roomId);
-			
+
 			// Redirect to results page with parameters
 			toast.info('Competition ended!');
 			setTimeout(() => {
@@ -665,9 +665,10 @@
 
 		// Request camera permissions early to make deviceId accessible
 		if (browser) {
-			navigator.mediaDevices.getUserMedia({ video: true })
+			navigator.mediaDevices
+				.getUserMedia({ video: true })
 				.then(() => getCameras())
-				.catch(err => console.error('[CAMERA] Permission error:', err));
+				.catch((err) => console.error('[CAMERA] Permission error:', err));
 		}
 
 		return () => {
@@ -761,34 +762,32 @@
 					</Card.Header>
 					<Card.Content class="space-y-4">
 						<!-- Camera selector -->
-						{#if availableCameras.length > 1}
-							<div class="mb-2">
-								<Select.Root
-									value={selectedCamera}
-									type="single"
-									onValueChange={(value) => switchCamera(value)}
-								>
-									<Select.Trigger class="w-full">
-										{#if selectedCamera}
-											<span>
-												{availableCameras.find((camera) => camera.deviceId === selectedCamera)
-													?.label ||
-													`Camera ${availableCameras.indexOf(availableCameras.find((camera) => camera.deviceId === selectedCamera)!) + 1}`}
-											</span>
-										{:else}
-											<span>Select a camera</span>
-										{/if}
-									</Select.Trigger>
-									<Select.Content>
-										{#each availableCameras as camera}
-											<Select.Item value={camera.deviceId}>
-												{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
-											</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</div>
-						{/if}
+						<div class="mb-2">
+							<Select.Root
+								value={selectedCamera}
+								type="single"
+								onValueChange={(value) => switchCamera(value)}
+							>
+								<Select.Trigger class="w-full">
+									{#if selectedCamera}
+										<span>
+											{availableCameras.find((camera) => camera.deviceId === selectedCamera)
+												?.label ||
+												`Camera ${availableCameras.indexOf(availableCameras.find((camera) => camera.deviceId === selectedCamera)!) + 1}`}
+										</span>
+									{:else}
+										<span>Select a camera</span>
+									{/if}
+								</Select.Trigger>
+								<Select.Content>
+									{#each availableCameras as camera}
+										<Select.Item value={camera.deviceId}>
+											{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+										</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</div>
 
 						<!-- Local stream (full width) -->
 						<div class="relative overflow-hidden rounded-lg bg-muted">
@@ -853,36 +852,32 @@
 			<Card.Content>
 				<div class="space-y-4">
 					<!-- Camera selector for waiting room -->
-					{#if availableCameras.length > 1}
-						<div class="mb-4">
-							<label for="camera-select" class="mb-2 block text-sm font-medium">Select Camera</label
-							>
-							<Select.Root
-								type="single"
-								value={selectedCamera}
-								onValueChange={(value) => switchCamera(value)}
-							>
-								<Select.Trigger class="w-full">
-									{#if selectedCamera}
-										<span>
-											{availableCameras.find((camera) => camera.deviceId === selectedCamera)
-												?.label ||
-												`Camera ${availableCameras.indexOf(availableCameras.find((camera) => camera.deviceId === selectedCamera)!) + 1}`}
-										</span>
-									{:else}
-										<span>Select a camera</span>
-									{/if}
-								</Select.Trigger>
-								<Select.Content>
-									{#each availableCameras as camera}
-										<Select.Item value={camera.deviceId}>
-											{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
-										</Select.Item>
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						</div>
-					{/if}
+					<div class="mb-4">
+						<label for="camera-select" class="mb-2 block text-sm font-medium">Select Camera</label>
+						<Select.Root
+							type="single"
+							value={selectedCamera}
+							onValueChange={(value) => switchCamera(value)}
+						>
+							<Select.Trigger class="w-full">
+								{#if selectedCamera}
+									<span>
+										{availableCameras.find((camera) => camera.deviceId === selectedCamera)?.label ||
+											`Camera ${availableCameras.indexOf(availableCameras.find((camera) => camera.deviceId === selectedCamera)!) + 1}`}
+									</span>
+								{:else}
+									<span>Select a camera</span>
+								{/if}
+							</Select.Trigger>
+							<Select.Content>
+								{#each availableCameras as camera}
+									<Select.Item value={camera.deviceId}>
+										{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
 
 					<div>
 						<div class="mb-2 flex items-center gap-2">
