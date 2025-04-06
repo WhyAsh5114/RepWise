@@ -636,7 +636,7 @@
 
 	// Function to check competition status from the database
 	async function checkCompetitionStatus() {
-		if (!browser || isHost || isCompetitionActive) return;
+		if (!browser || isHost() || isCompetitionActive) return;
 
 		// Don't check too frequently (max once per second)
 		const now = Date.now();
