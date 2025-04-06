@@ -16,6 +16,10 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
+	// Import our new components
+	import Leaderboard from '../components/leaderboard.svelte';
+	import ParticipantGrid from '../components/participant-grid.svelte';
+
 	// Simple interface for participant
 	interface Participant {
 		userId: string;
@@ -552,9 +556,25 @@
 		if (scoresRefreshInterval) clearInterval(scoresRefreshInterval);
 
 		// Final sync of scores
-		syncScore();
-
-		toast.info('Competition ended!');
+		syncScore().then(() => {
+			// Determine current user's position
+			const currentUserId = agoraClient?.uid?.toString() || '';
+			const userPosition = rankings.findIndex(r => r.userId === currentUserId) + 1;
+			const userScore = scores[currentUserId] || 0;
+			
+			// Create URL with search parameters
+			const searchParams = new URLSearchParams();
+			searchParams.set('position', userPosition.toString());
+			searchParams.set('score', userScore.toString());
+			searchParams.set('total', rankings.length.toString());
+			searchParams.set('roomId', roomId);
+			
+			// Redirect to results page with parameters
+			toast.info('Competition ended!');
+			setTimeout(() => {
+				goto(`/compete/results?${searchParams.toString()}`);
+			}, 1500);
+		});
 	}
 
 	function updateRankings() {
@@ -652,14 +672,14 @@
 	{:else if isCompetitionActive}
 		<!-- Competition in progress view -->
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-			<!-- Video streams section -->
-			<div class="col-span-2 space-y-4">
+			 <!-- Main content and videos section (takes 2/3 of screen on large displays) -->
+			<div class="col-span-1 space-y-4 lg:col-span-2">
 				<Card.Root>
 					<Card.Header>
 						<div class="flex items-center justify-between">
 							<Card.Title class="flex items-center">
 								<Trophy class="mr-2 h-5 w-5 text-yellow-500" />
-								Competition Streams
+								 Competition
 							</Card.Title>
 							<!-- Timer display -->
 							<div class="flex items-center gap-2">
@@ -669,9 +689,9 @@
 							</div>
 						</div>
 					</Card.Header>
-					<Card.Content>
+					<Card.Content class="space-y-4">
 						<!-- Local stream (full width) -->
-						<div class="relative mb-3 overflow-hidden rounded-lg bg-muted">
+						<div class="relative overflow-hidden rounded-lg bg-muted">
 							{#if detectionEnabled && localTrack}
 								<DetectionComponent
 									timer={0}
@@ -689,132 +709,41 @@
 							>
 								You (Live)
 							</div>
+							
+							<!-- Your score overlay -->
+							<div class="absolute right-2 top-2 rounded-md bg-primary/90 px-3 py-1 text-sm font-bold text-white">
+								{scores[agoraClient?.uid?.toString() || ''] || 0} reps
+							</div>
 						</div>
-
-						<!-- Dynamic grid for remote participants -->
-						<div
-							class={`grid gap-3 ${
-								Object.keys(remoteUsers).length <= 1
-									? 'grid-cols-1'
-									: Object.keys(remoteUsers).length <= 2
-										? 'grid-cols-2'
-										: Object.keys(remoteUsers).length <= 4
-											? 'grid-cols-2'
-											: 'grid-cols-3'
-							}`}
-						>
-							<!-- Remote streams -->
-							<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-							{#each Object.entries(remoteUsers) as [uid, _]}
-								<div class="relative overflow-hidden rounded-lg bg-muted">
-									<div id="user-{uid}" class="aspect-video w-full"></div>
-									<div
-										class="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white"
-									>
-										{participants.find((p) => p.userId === uid)?.name || 'Participant'}
-									</div>
-									<!-- Score overlay -->
-									<div
-										class="absolute right-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white"
-									>
-										{scores[uid] || 0} reps
-									</div>
-								</div>
-							{/each}
-
-							<!-- Placeholder for empty slots -->
-							{#if Object.keys(remoteUsers).length < 3}
-								<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-								{#each Array(3 - Object.keys(remoteUsers).length) as _}
-									<div class="flex aspect-video items-center justify-center rounded-lg bg-muted/50">
-										<div class="text-sm text-muted-foreground">Waiting for participant...</div>
-									</div>
-								{/each}
-							{/if}
+						
+						<!-- Instructions -->
+						<div class="rounded-lg bg-muted p-3">
+							<p class="text-sm text-muted-foreground">
+								Perform as many push-ups as you can with proper form. The system will count your reps automatically.
+							</p>
 						</div>
-					</Card.Content>
-				</Card.Root>
-
-				<!-- Instructions card -->
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Exercise Instructions</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<p class="text-muted-foreground">
-							Perform as many push-ups as you can with proper form. The system will count your reps
-							automatically.
-						</p>
+						
+						<!-- Other participants grid -->
+						<div class="mt-4">
+							<h3 class="mb-2 font-medium">Other Competitors</h3>
+							<ParticipantGrid 
+								{remoteUsers} 
+								{participants} 
+								{scores} 
+								{rankings}
+							/>
+						</div>
 					</Card.Content>
 				</Card.Root>
 			</div>
 
-			<!-- Leaderboard and scoring section -->
-			<div class="space-y-4">
-				<Card.Root>
-					<Card.Header>
-						<Card.Title class="flex items-center">
-							<Trophy class="mr-2 h-5 w-5 text-yellow-500" />
-							Leaderboard
-						</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<div class="space-y-3">
-							{#each rankings.slice(0, 10) as participant, index}
-								<div class="flex items-center justify-between rounded-md bg-muted/40 p-2">
-									<div class="flex items-center gap-2">
-										<div
-											class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10"
-										>
-											{#if index === 0}
-												<span class="text-yellow-500">🥇</span>
-											{:else if index === 1}
-												<span class="text-gray-400">🥈</span>
-											{:else if index === 2}
-												<span class="text-amber-700">🥉</span>
-											{:else}
-												<span class="text-muted-foreground">{index + 1}</span>
-											{/if}
-										</div>
-										<span>{participant.userName}</span>
-									</div>
-									<Badge variant="secondary">{participant.score} reps</Badge>
-								</div>
-							{/each}
-
-							{#if rankings.length === 0}
-								<p class="py-4 text-center text-muted-foreground">No scores yet</p>
-							{/if}
-						</div>
-					</Card.Content>
-				</Card.Root>
-
-				<!-- User stats card -->
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Your Stats</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<div class="space-y-4">
-							<div class="flex justify-between">
-								<span class="text-muted-foreground">Your Reps:</span>
-								<span class="font-semibold">{scores[agoraClient?.uid?.toString() || ''] || 0}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-muted-foreground">Current Rank:</span>
-								<span class="font-semibold">
-									{rankings.findIndex((r) => r.userId === (agoraClient?.uid?.toString() || '')) +
-										1 || '-'}
-									/ {rankings.length}
-								</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-muted-foreground">Personal Best:</span>
-								<span class="font-semibold">{scores[agoraClient?.uid?.toString() || ''] || 0}</span>
-							</div>
-						</div>
-					</Card.Content>
-				</Card.Root>
+			<!-- Leaderboard and stats section (takes 1/3 of screen on large displays) -->
+			<div class="col-span-1">
+				<Leaderboard 
+					{rankings} 
+					currentUserId={agoraClient?.uid?.toString() || ''} 
+					{scores}
+				/>
 			</div>
 		</div>
 	{:else}
