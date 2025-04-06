@@ -65,12 +65,66 @@
 	let exerciseName = $state('Push Up'); // Default exercise type
 	let selectedCamera = $state('');
 	let detectionRepCount = $state(0);
+	let availableCameras = $state<MediaDeviceInfo[]>([]);
 
 	// Competition timer variables
 	let competitionTimeInSeconds = $state(30);
 	let competitionTimerInterval: ReturnType<typeof setInterval>;
 	let scoreUpdateInterval: ReturnType<typeof setInterval>;
 	let scoresRefreshInterval: ReturnType<typeof setInterval>;
+
+	// Enumerate available cameras
+	async function getCameras() {
+		if (!browser) return;
+
+		try {
+			const devices = await navigator.mediaDevices.enumerateDevices();
+			availableCameras = devices.filter(device => device.kind === 'videoinput');
+
+			// Set default camera if none selected yet
+			if (availableCameras.length > 0 && !selectedCamera) {
+				selectedCamera = availableCameras[0].deviceId;
+			}
+
+			console.log(`[CAMERA] Found ${availableCameras.length} cameras`);
+		} catch (err) {
+			console.error('[CAMERA] Error enumerating devices:', err);
+		}
+	}
+
+	// Switch to selected camera
+	async function switchCamera(deviceId: string) {
+		if (!browser || !agoraClient) return;
+
+		try {
+			selectedCamera = deviceId;
+			console.log(`[CAMERA] Switching to camera: ${deviceId}`);
+
+			// Close existing track if it exists
+			if (localTrack) {
+				await agoraClient.unpublish([localTrack]);
+				localTrack.close();
+			}
+
+			// Create track with selected device
+			const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+			localTrack = await AgoraRTC.createCameraVideoTrack({
+				cameraId: deviceId,
+				encoderConfig: isCompetitionActive ? 'high' : 'standard'
+			});
+
+			// Publish the new track
+			await agoraClient.publish([localTrack]);
+
+			// Play local video
+			setTimeout(() => playLocalVideo(0), 300);
+
+			toast.success('Camera switched successfully');
+		} catch (err) {
+			console.error('[CAMERA] Error switching camera:', err);
+			toast.error('Failed to switch camera');
+		}
+	}
 
 	// Retry playing local video with backoff
 	function playLocalVideo(attempt = 0) {
@@ -373,6 +427,9 @@
 					playLocalVideo(0);
 				}
 			}, 2000);
+
+			// After successful connection, enumerate cameras
+			getCameras();
 		} catch (err) {
 			console.error('[AGORA] Error connecting:', err);
 			error =
@@ -398,16 +455,17 @@
 				localTrack.close();
 			}
 
-			// Create a new high quality track
+			// Create a new high quality track with selected camera
 			const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
 			localTrack = await AgoraRTC.createCameraVideoTrack({
+				cameraId: selectedCamera || undefined,
 				encoderConfig: 'high' // Higher quality for competition
 			});
 
 			await agoraClient.publish([localTrack]);
 			console.log('[AGORA] Published high quality video');
 
-			 // Enable detection after local track is ready
+			// Enable detection after local track is ready
 			detectionEnabled = true;
 
 			// Instead of playing in local-player, we'll handle this through the detection component
@@ -604,6 +662,13 @@
 		// Connect to Agora immediately when page loads
 		connectToAgora();
 
+		// Request camera permissions early to make deviceId accessible
+		if (browser) {
+			navigator.mediaDevices.getUserMedia({ video: true })
+				.then(() => getCameras())
+				.catch(err => console.error('[CAMERA] Permission error:', err));
+		}
+
 		return () => {
 			if (browser) {
 				// Clear all intervals on component unmount
@@ -690,13 +755,31 @@
 						</div>
 					</Card.Header>
 					<Card.Content class="space-y-4">
+						<!-- Camera selector -->
+						{#if availableCameras.length > 1}
+							<div class="mb-2">
+								<select 
+									class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+									bind:value={selectedCamera}
+									onchange={(e) => switchCamera(e.currentTarget.value)}
+									disabled={isCompetitionActive}
+								>
+									{#each availableCameras as camera}
+										<option value={camera.deviceId}>
+											{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+										</option>
+									{/each}
+								</select>
+							</div>
+						{/if}
+						
 						<!-- Local stream (full width) -->
 						<div class="relative overflow-hidden rounded-lg bg-muted">
 							{#if detectionEnabled && localTrack}
 								<DetectionComponent
 									timer={0}
 									exerciseName={exerciseName}
-									selectedCamera={selectedCamera}
+									{selectedCamera}
 									inputSource="webcam"
 									videoFile={null}
 									on:repcount={(e) => handleRepCountUpdate(e.detail)}
@@ -758,6 +841,25 @@
 
 			<Card.Content>
 				<div class="space-y-4">
+					<!-- Camera selector for waiting room -->
+					{#if availableCameras.length > 1}
+						<div class="mb-4">
+							<label for="camera-select" class="mb-2 block text-sm font-medium">Select Camera</label>
+							<select 
+								id="camera-select"
+								class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+								bind:value={selectedCamera}
+								onchange={(e) => switchCamera(e.currentTarget.value)}
+							>
+								{#each availableCameras as camera}
+									<option value={camera.deviceId}>
+										{camera.label || `Camera ${availableCameras.indexOf(camera) + 1}`}
+									</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
+					
 					<div>
 						<div class="mb-2 flex items-center gap-2">
 							<Users size={18} />
